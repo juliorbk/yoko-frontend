@@ -1,6 +1,4 @@
 
-```
-=======
 # 🤖 Yoko AI - Frontend
 
 Bienvenido al repositorio frontend de **Yoko**, un asistente académico impulsado por Inteligencia Artificial diseñado específicamente para la comunidad estudiantil de la Universidad Nacional Experimental de Guayana (UNEG). 
@@ -22,4 +20,3 @@ Este proyecto implementa una interfaz de usuario conversacional fluida, intuitiv
 * **Animaciones:** Framer Motion
 * **Iconografía:** Lucide React
 * **Gestión de Estado:** Context API / Zustand (Dependiendo de la implementación final)
->>>>>>> 048b6df1e6365f317b0e171f6d198064306c1d0d
