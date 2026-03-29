@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-primary: #004be3;
+  --color-primary-container: #3366ff;
+  --color-on-primary: #ffffff;
+  
+  --color-surface: #f4f4f5;
+  --color-sidebar: #1e293b;
+  
+  --radius-2xl: 1rem;
+}
+
+@layer base {
+  body {
+    @apply bg-surface text-slate-900 font-sans antialiased;
+  }
+}
+
+.glass-effect {
+  backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.9);
+}
+
+.yoko-bubble {
+  @apply bg-primary text-white px-6 py-4 rounded-2xl rounded-tl-none shadow-lg shadow-primary/10;
+}
+
+.user-bubble {
+  @apply bg-white text-slate-800 px-6 py-4 rounded-2xl rounded-tr-none shadow-sm border border-slate-100;
+}
+
+.floating-input {
+  @apply bg-white p-2 rounded-2xl shadow-xl shadow-slate-200 border border-slate-200 flex items-center gap-3 pr-4 transition-all duration-300 focus-within:ring-2 focus-within:ring-primary/20;
+}

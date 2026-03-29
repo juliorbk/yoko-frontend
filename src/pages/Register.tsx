@@ -1,0 +1,243 @@
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  UserPlus,
+  Mail,
+  Lock,
+  User,
+  GraduationCap,
+  AlertCircle,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react";
+import api from "../api/axiosConfig";
+import { cn } from "../lib/utils";
+
+const Register = () => {
+  // 1. Alinear los nombres exactamente con el DTO de Spring Boot
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    career: "", // Cambiado de 'major' a 'career'
+    currentSemester: "", // Agregado el semestre
+    password: "",
+  });
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const navigate = useNavigate();
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      // 2. Preparamos el payload convirtiendo el semestre a número
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        career: formData.career,
+        password: formData.password,
+        currentSemester: parseInt(formData.currentSemester), // <-- Spring exige un Integer
+      };
+
+      await api.post("/auth/register", payload);
+      setSuccess(true);
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          "Error al registrarse. Inténtalo de nuevo.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-100/20">
+            <CheckCircle2 className="text-green-600 w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">
+            ¡Registro Exitoso!
+          </h1>
+          <p className="text-slate-500 mt-2">Redirigiendo al login...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+            <UserPlus className="text-white w-8 h-8" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900">Únete a Yoko AI</h1>
+          <p className="text-slate-500 mt-2">
+            Crea tu cuenta de estudiante UNEG
+          </p>
+        </div>
+
+        <form onSubmit={handleRegister} className="space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 text-sm animate-in fade-in slide-in-from-top-2">
+              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <p>{error}</p>
+            </div>
+          )}
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-700 ml-1">
+              Nombre Completo
+            </label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="text"
+                name="name"
+                required
+                value={formData.name}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="Juan Pérez"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-700 ml-1">
+              Correo Institucional
+            </label>
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="email"
+                name="email"
+                required
+                value={formData.email}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="estudiante@uneg.edu.ve"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-700 ml-1">
+              Carrera
+            </label>
+            <div className="relative">
+              <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <select
+                name="career" // <-- CAMBIADO DE 'major' a 'career'
+                required
+                value={formData.career}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
+              >
+                <option value="" disabled>
+                  Selecciona tu carrera
+                </option>
+                <option value="Ingeniería Informática">
+                  Ingeniería Informática
+                </option>
+                <option value="Ingeniería Industrial">
+                  Ingeniería Industrial
+                </option>
+                <option value="Administración de Empresas">
+                  Administración de Empresas
+                </option>
+                <option value="Contaduría Pública">Contaduría Pública</option>
+                <option value="Educación">Educación</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-700 ml-1">
+              Semestre Actual
+            </label>
+            <div className="relative">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="number"
+                name="currentSemester"
+                required
+                min="1"
+                max="10"
+                value={formData.currentSemester}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="Ej. 7"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-slate-700 ml-1">
+              Contraseña
+            </label>
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <input
+                type="password"
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className={cn(
+              "w-full bg-primary hover:bg-primary-container text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 mt-4",
+              loading && "opacity-70 cursor-not-allowed",
+            )}
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Creando cuenta...
+              </>
+            ) : (
+              "Registrarse"
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-slate-500 text-sm">
+            ¿Ya tienes una cuenta?{" "}
+            <Link
+              to="/login"
+              className="text-primary font-semibold hover:underline"
+            >
+              Inicia sesión
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Register;
