@@ -1,10 +1,12 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://happy-dogs-vanish.loca.lt/api",
+  // 🚨 1. Pega aquí tu nueva URL de LocalTunnel (no olvides el /api al final)
+  baseURL: "https://TU-URL-DE-LOCALTUNNEL.loca.lt/api",
   headers: {
     "Content-Type": "application/json",
-    "ngrok-skip-browser-warning": "69420", // 🚨 ESTO ES OBLIGATORIO PARA NGROK
+    // 🚨 2. Este es el nuevo header para saltar la pantalla de LocalTunnel
+    "Bypass-Tunnel-Reminder": "true",
   },
 });
 
@@ -16,13 +18,11 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Interceptor para manejar errores globales (como el Rate Limit)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 429) {
       console.error("Rate limit excedido: ¡Vas muy rápido, espera un minuto!");
-      // Aquí podrías disparar un toast o alerta avisando que esperen un minuto
     }
     return Promise.reject(error);
   },
