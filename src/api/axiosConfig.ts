@@ -1,24 +1,20 @@
 import axios from "axios";
 
 const api = axios.create({
-  // URL de producción en Render
   baseURL: "https://c6d2-135-136-5-113.ngrok-free.app/api",
+  headers: {
+    "Content-Type": "application/json",
+    "ngrok-skip-browser-warning": "69420", // 🚨 ESTO ES OBLIGATORIO PARA NGROK
+  },
 });
 
-// Interceptor para inyectar el Token JWT
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("yoko_token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    config.headers["ngrok-skip-browser-warning"] = "69420";
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  },
-);
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("yoko_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 // Interceptor para manejar errores globales (como el Rate Limit)
 api.interceptors.response.use(
