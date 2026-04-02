@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://c6d2-135-136-5-113.ngrok-free.app/api",
+  baseURL: "https://happy-dogs-vanish.loca.lt/api",
   headers: {
     "Content-Type": "application/json",
     "ngrok-skip-browser-warning": "69420", // 🚨 ESTO ES OBLIGATORIO PARA NGROK
