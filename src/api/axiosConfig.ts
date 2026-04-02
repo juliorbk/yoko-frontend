@@ -12,6 +12,7 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    config.headers["ngrok-skip-browser-warning"] = "69420";
     return config;
   },
   (error) => {
