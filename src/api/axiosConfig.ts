@@ -1,9 +1,11 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:8080/api",
+  // URL de producción en Render
+  baseURL: "https://yoko-backend-api.onrender.com/api",
 });
 
+// Interceptor para inyectar el Token JWT
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("yoko_token");
@@ -14,7 +16,19 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
+);
+
+// Interceptor para manejar errores globales (como el Rate Limit)
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 429) {
+      console.error("Rate limit excedido: ¡Vas muy rápido, espera un minuto!");
+      // Aquí podrías disparar un toast o alerta avisando que esperen un minuto
+    }
+    return Promise.reject(error);
+  },
 );
 
 export default api;
