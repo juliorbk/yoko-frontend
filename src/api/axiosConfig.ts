@@ -2,7 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   // URL de producción en Render
-  baseURL: "https://3759-135-136-5-108.ngrok-free.app/api",
+  baseURL: "https://3759-135-136-5-108.ngrok-free.app",
 });
 
 // Interceptor para inyectar el Token JWT
