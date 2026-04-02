@@ -2,7 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   // 🚨 1. Pega aquí tu nueva URL de LocalTunnel (no olvides el /api al final)
-  baseURL: "https://TU-URL-DE-LOCALTUNNEL.loca.lt/api",
+  baseURL: "https://happy-dogs-vanish.loca.lt/api",
   headers: {
     "Content-Type": "application/json",
     // 🚨 2. Este es el nuevo header para saltar la pantalla de LocalTunnel
