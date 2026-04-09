@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef} from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Send,
@@ -7,18 +8,24 @@ import {
   MessageSquare,
   Menu,
   X,
+  Moon,
+  Sun,
+  SquarePen,
   Loader2,
   GraduationCap,
-  Sparkles,
+  ToggleLeft,
+  ToggleRight,
   Bot,
   Trash2,
   Plus,
+  Settings,
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { cn } from "../lib/utils";
 import type { Message, User, ChatSession } from "../types";
 
 const Chat = () => {
+  const [theme, setTheme] = useState("light");
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,6 +34,12 @@ const Chat = () => {
   const [user, setUser] = useState<User | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [recentChats, setRecentChats] = useState<ChatSession[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [modalOpen, setModalOpen]= useState(false);
+  const [containerStyle, setContainerStyle] = useState("container-chat");
+  const [sidebarStyle, setSidebarStyle] = useState("");
+  const [recentChats, setRecentChats] = useState<any[]>([]);
+  const [buttonTheme, setButtonTheme] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -37,6 +50,7 @@ const Chat = () => {
     if (storedUser) {
       const parsedUser: User = JSON.parse(storedUser);
       setUser(parsedUser);
+      //createSession(parsedUser.id);
       fetchRecentChats(parsedUser.id);
     } else {
       navigate("/login");
@@ -186,7 +200,7 @@ const Chat = () => {
 
   // ─── Render ──────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-[#f4f4f5] overflow-hidden">
+    <div className={theme==='light'? `${containerStyle} bg-on-primary overflow-hidden`:`${containerStyle} bg-[#181C36] overflow-hidden`}>
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
@@ -197,10 +211,17 @@ const Chat = () => {
 
       {/* ── Sidebar ─────────────────────────────────────────────────────────── */}
       <aside
-        className={cn(
-          "fixed lg:static inset-y-0 left-0 w-72 bg-[#1e293b] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col",
+        className=
+        {theme==="light"?
+        cn(
+          ` ${sidebarStyle} sidebar inset-y-0 left-0 w-72 bg-linear-to-b from-[#CCE9FF] to-primary/80 text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
-        )}
+        ):
+         cn(
+          ` ${sidebarStyle} sidebar inset-y-0 left-0 w-72 bg-linear-to-b from-[#02385A] to-[#021C41] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+        )
+      }
       >
         {/* Logo */}
         <div className="p-6 flex items-center gap-3 border-b border-slate-700/50">
@@ -217,6 +238,13 @@ const Chat = () => {
           >
             <X className="w-5 h-5 text-slate-400" />
           </button>
+        <div className=" w-full p-6 flex items-center gap-3 border-b border-slate-700/50">
+            <button 
+            className={theme==='light'?"w-full  flex items-center gap-3 p-3 rounded-xl  text-azulUnegDark font-medium hover:bg-[#010064] hover:text-primary transition-colors text-left group cursor-pointer":"w-full  flex items-center gap-3 p-3 rounded-xl font-medium text-primary hover:bg-primary/70 hover:text-azulUneg transition-colors text-left group cursor-pointer"}
+            >
+              <SquarePen className={theme==='light'?"w-4 h-4 text-slate-500 group-hover:text-primary transition-colors":"w-4 h-4 text-slate-500 group-hover:text-azulUneg transition-colors"} />
+              Nuevo Chat
+            </button>
         </div>
 
         {/* New Chat button */}
@@ -231,6 +259,7 @@ const Chat = () => {
         </div>
 
         {/* Chat list */}
+        {/*Historial de chats*/}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           <div className="space-y-1">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-2 mb-2">
@@ -243,6 +272,10 @@ const Chat = () => {
               </div>
             )}
 
+          <div className="space-y-2">
+            <h1 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-2">
+              Chats
+            </h1>
             {recentChats.length > 0 ? (
               recentChats.map((chat, idx) => (
                 <div
@@ -281,6 +314,19 @@ const Chat = () => {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
+                <button
+                  key={idx}
+                  onClick={()=>{
+                    console.log(chat) // Limpia los mensajes actuales para cargar los de la nueva sesión
+                    // Aquí podrías agregar una función para cargar los mensajes de esta sesión específica desde el backend si tu API lo soporta
+                  }}
+                  className={theme==='light'?"w-full  flex items-center gap-3 p-3 rounded-xl  text-primary hover:bg-[#010064] transition-colors text-left group cursor-pointer":"w-full  flex items-center gap-3 p-3 rounded-xl  text-primary hover:bg-primary/70 transition-colors text-left group cursor-pointer"}
+                >
+                  <MessageSquare className={theme==='light'?"w-4 h-4 text-slate-500 group-hover:text-primary transition-colors":"w-4 h-4 text-slate-500 group-hover:text-azulUneg transition-colors"} />
+                  <span className={theme==='light'?"text-sm text-azulUnegDark group-hover:text-primary truncate font-medium":"text-sm text-slate-300 group-hover:text-azulUneg truncate font-medium"}>
+                    {chat.title || "Nueva conversación"}
+                  </span>
+                </button>
               ))
             ) : (
               <div className="p-4 text-center">
@@ -314,18 +360,109 @@ const Chat = () => {
             Cerrar Sesión
           </button>
         </div>
+        {/* User Profile Configuracion */}
+        <details
+        open={modalOpen}
+        className=" w-full flex items-center justify-center gap-3 border-t border-slate-800/80"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setModalOpen(false);
+          }
+        }}
+        >
+          <summary
+           className={theme==='light'? "list-style:none w-full  flex items-center m-4 gap-3 p-3 rounded-xl font-medium text-azulUnegDark hover:bg-[#010064] hover:text-primary transition-colors text-left group cursor-pointer":"list-style:none w-full  flex items-center m-4 gap-3 p-3 rounded-xl font-medium text-primary hover:bg-primary/70 hover:text-azulUneg transition-colors text-left group cursor-pointer"}
+           onClick={(e)=>{
+              e.preventDefault();
+              setModalOpen(!modalOpen);
+            }
+           }
+          >
+            <Settings  className={theme==='light'? "w-4 h-4 text-slate-500 group-hover:text-primary transition-colors":"w-4 h-4 text-slate-500 group-hover:text-azulUneg transition-colors"}/>
+            Configuracion
+          </summary>
+          <div 
+          className="absolute -ml-50 -mt-48 gap-3 z-1000 flex flex-col bg-primary border border-azulUnegDark p-4 rounded-2xl transition-all duration-5000 ease-in-out"
+          > 
+            <button
+            className="w-full  flex items-center gap-3 p-3 rounded-xl text-[0.8rem] text-azulUneg hover:text-primary hover:bg-[#010064] transition-colors text-left group"
+            onClick={()=>{
+              setTheme(buttonTheme? "light" : "dark");
+              setButtonTheme(!buttonTheme)
+            }}
+            >
+              
+              {buttonTheme?(
+                 <p
+                 className="w-auto flex flex-row items-center gap-1 cursor-pointer"
+                 ><Moon className="w-4 h-4 text-azulUneg group-hover:text-primary transition-colors"/>
+                  Tema Oscuro 
+                 <ToggleRight className="w-4 h-4 ml-12 text-azulUneg group-hover:text-primary transition-colors" />
+                 </p>
+              ) : (
+                <p
+                className="w-auto flex flex-row items-center gap-1 cursor-pointer"
+                >
+                <Sun className="w-4 h-4 text-azulUneg group-hover:text-primary transition-colors" />
+                 Tema Claro 
+                <ToggleLeft className="w-4 h-4 ml-15 text-azulUneg group-hover:text-primary transition-colors" />
+                </p>
+              )
+              }
+
+            </button>
+
+            <button
+              onClick={handleLogout}
+              className="cursor-pointer w-full  flex items-center gap-3 p-3 rounded-xl text-[0.8rem] text-azulUneg hover:text-primary hover:bg-[#010064] transition-colors text-left group"
+            >
+              <LogOut className="w-4 h-4" />
+              Cerrar Sesión
+            </button>
+
+            <div className="flex items-center gap-3 p-3 rounded-2xl bg-azulUneg/50 border border-azulUnegDark/50">
+              <div className="w-10 h-10 bg-azulUneg rounded-full flex items-center justify-center shrink-0">
+                <UserIcon className="text-on-primary w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">
+                  {user?.name || "Estudiante"}
+                </p>
+                <div className="flex items-center gap-1 text-[10px] text-on-primary">
+                  <GraduationCap className="w-3 h-3" />
+                  <span className="truncate">{user?.career || "Carrera"}</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </details>
       </aside>
 
       {/* ── Main Chat Area ───────────────────────────────────────────────────── */}
       <main className="flex-1 flex flex-col relative min-w-0">
         {/* Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center px-6 sticky top-0 z-30">
+      {/* Main Chat Area */}
+      <main className="main flex-1 flex flex-col relative min-w-0 ">
+        {/* Header */} 
+        <header className={theme==='light'?"h-8 bg-white border-b border-slate-200 flex items-center p-6 sticky top-0 z-30":"h-8 bg-[#14172d]/80 border-b border-[#14172d] flex items-center p-6 sticky top-0 z-30"}>
           <button
-            className="lg:hidden p-2 -ml-2 mr-4 hover:bg-slate-100 rounded-lg"
-            onClick={() => setSidebarOpen(true)}
-          >
+            className=" p-2 -ml-2 mr-4 hover:bg-primary rounded-lg cursor-pointer"
+            onClick={() =>{ 
+                if (sidebarOpen) {
+                  setSidebarOpen(false);
+                  setContainerStyle("container-chat2");
+                  setSidebarStyle("size-0 overflow-hidden");
+                } else {
+                  setSidebarOpen(true);
+                  setContainerStyle("container-chat");
+                  setSidebarStyle(" ");
+                }          
+              }}>
             <Menu className="w-6 h-6 text-slate-600" />
           </button>
+
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
               <Sparkles className="text-primary w-4 h-4" />
@@ -341,6 +478,7 @@ const Chat = () => {
               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
               Sistema Activo
             </div>
+            <h2 className={theme==='light'?"font-semibold text-slate-800": "font-semibold text-on-primary"}>Yoko AI</h2>
           </div>
         </header>
 
@@ -355,12 +493,15 @@ const Chat = () => {
             </div>
           ) : messages.length === 0 ? (
             /* Welcome screen */
+        <div id="panel" className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6  mask-b-from-80% mask-b-to-100%">
+          {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
               <div className="w-20 h-20 bg-primary/5 rounded-3xl flex items-center justify-center">
+              <div className={theme==='light'?"w-20 h-20 bg-azulUneg/5 rounded-3xl flex items-center justify-center animate-bounce duration-2000":"w-20 h-20 bg-primary/5 rounded-3xl flex items-center justify-center animate-bounce duration-2000"}>
                 <Bot className="text-primary w-10 h-10" />
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-slate-800">
+                <h3 className={theme==='light'?"text-xl font-bold text-slate-800":"text-xl font-bold text-on-primary"}>
                   ¡Hola! Soy Yoko AI
                 </h3>
                 <p className="text-slate-500">
@@ -378,7 +519,7 @@ const Chat = () => {
                   <button
                     key={i}
                     onClick={() => setInput(suggestion)}
-                    className="p-3 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-primary hover:text-primary transition-all text-left"
+                    className={theme==='light'?"p-3 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl hover:border-azulUneg hover:text-azulUneg transition-all text-left":"p-3 text-sm text-azulUneg/60 bg-primary border border-on-primary rounded-xl hover:border-primary hover:text-azulUneg transition-all text-left"}
                   >
                     {suggestion}
                   </button>
@@ -416,8 +557,8 @@ const Chat = () => {
                     className={cn(
                       "p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
                       msg.role === "user"
-                        ? "bg-primary text-white rounded-tr-none"
-                        : "bg-slate-100 text-slate-800 rounded-tl-none border border-slate-200",
+                        ? "bg-aquaUneg text-white rounded-tr-none"
+                        : "bg-primary text-slate-800 rounded-tl-none border border-slate-200",
                     )}
                   >
                     {msg.content}
@@ -447,6 +588,10 @@ const Chat = () => {
 
         {/* Input */}
         <div className="p-4 lg:p-6 bg-white border-t border-slate-200">
+        {/*Fin Messages*/}
+      </main>
+        {/* Input Area */}
+        <div className={theme=='light'? "messageBox p-4  bg-white border-t border-slate-200": "messageBox p-4  bg-[#14172d]/80 border-t border-[#14172d]"}>
           <form
             onSubmit={handleSendMessage}
             className="max-w-4xl mx-auto relative"
@@ -458,6 +603,7 @@ const Chat = () => {
               placeholder="Escribe tu consulta académica aquí..."
               disabled={loadingHistory}
               className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-6 pr-16 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 disabled:opacity-50"
+              className={theme=='light'?"w-full placeholder:text-[#3F3EB1]/65 placeholder:text-[0.8rem] max-h-full overflow-y-auto bg-primary border border-slate-200 rounded-2xl py-2 pl-6 pr-16 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all": "w-full text-on-primary placeholder:text-primary/65 placeholder:text-[0.8rem] max-h-full overflow-y-auto bg-[#1A3D63] border border-azulUnegDark rounded-2xl py-2 pl-6 pr-16 focus:outline-none focus:ring-2 focus:ring-[#1A3D63]/20 focus:border-[#1A3D63] transition-all"}
             />
             <button
               type="submit"
@@ -465,10 +611,20 @@ const Chat = () => {
               className={cn(
                 "absolute right-2 top-1/2 -translate-y-1/2 w-12 h-12 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95",
                 (!input.trim() || loading || loadingHistory) &&
+              disabled={!input.trim() || loading}
+              className={theme==='light'?cn(
+                " cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 size-8 bg-white text-azulUneg rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95",
+                (!input.trim() || loading) &&
                   "opacity-50 cursor-not-allowed hover:scale-100",
-              )}
+              ):
+              cn(
+                "cursor-pointer absolute right-2 top-1/2 -translate-y-1/2 size-8 bg-primary text-azulUneg rounded-xl flex items-center justify-center shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95",
+                (!input.trim() || loading) &&
+                  "opacity-50 cursor-not-allowed hover:scale-100",
+              )
+            }
             >
-              <Send className="w-5 h-5" />
+              <Send className="size-4" />
             </button>
           </form>
           <p className="text-[10px] text-center text-slate-400 mt-3">
@@ -476,7 +632,9 @@ const Chat = () => {
             con tu coordinación académica.
           </p>
         </div>
-      </main>
+       
+        {/**FIN  input area */}
+
     </div>
   );
 };
