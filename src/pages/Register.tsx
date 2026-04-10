@@ -11,8 +11,9 @@ import {
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { cn } from "../lib/utils";
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+
 
 const Register = () => {
   // 1. Alinear los nombres exactamente con el DTO de Spring Boot
