@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import {
-  UserPlus,
   Mail,
   Lock,
   User,
@@ -12,6 +11,9 @@ import {
 } from "lucide-react";
 import api from "../api/axiosConfig";
 import { cn } from "../lib/utils";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
+
 
 const Register = () => {
   // 1. Alinear los nombres exactamente con el DTO de Spring Boot
@@ -26,6 +28,7 @@ const Register = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (
@@ -65,7 +68,7 @@ const Register = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-surface flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-green-100/20">
             <CheckCircle2 className="text-green-600 w-8 h-8" />
@@ -80,13 +83,13 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4f4f5] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8 border border-slate-100">
+    <div className="fondo-lr">
+      <div className="w-full max-w-md rounded-2xl shadow-xl p-8 border border-primary/50">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
-            <UserPlus className="text-white w-8 h-8" />
+          <div className="image-container">
+             <img  src="src/assets/yoko.svg" className="brightness-115 p-0" />
           </div>
-          <h1 className="text-2xl font-bold text-slate-900">Únete a Yoko AI</h1>
+          <h1 className="text-2xl font-bold text-azulUnegDark">Únete a Yoko AI</h1>
           <p className="text-slate-500 mt-2">
             Crea tu cuenta de estudiante UNEG
           </p>
@@ -95,59 +98,59 @@ const Register = () => {
         <form onSubmit={handleRegister} className="space-y-4">
           {error && (
             <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl flex items-center gap-3 text-sm animate-in fade-in slide-in-from-top-2">
-              <AlertCircle className="w-5 h-5 flex-shrink-0" />
+              <AlertCircle className="w-5 h-5 shrink-0" />
               <p>{error}</p>
             </div>
           )}
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 ml-1">
+            <label className="text-sm font-medium text-azulUnegDark">
               Nombre Completo
             </label>
             <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
               <input
                 type="text"
                 name="name"
                 required
                 value={formData.name}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="lr-input"
                 placeholder="Juan Pérez"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 ml-1">
+            <label className="text-sm font-medium text-azulUnegDark">
               Correo Institucional
             </label>
             <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
               <input
                 type="email"
                 name="email"
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="lr-input"
                 placeholder="estudiante@uneg.edu.ve"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 ml-1">
+            <label className="text-sm font-medium text-azulUnegDark">
               Carrera
             </label>
-            <div className="relative">
-              <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+            <div className="lr-input pl-0! pr-0! relative">
+              <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
               <select
                 name="career" // <-- CAMBIADO DE 'major' a 'career'
                 required
                 value={formData.career}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all appearance-none"
+                className="w-full bg-slate-50 pl-12 pr-4 focus:outline-none  transition-all appearance-none"
               >
                 <option value="" disabled>
                   Selecciona tu carrera
@@ -168,11 +171,11 @@ const Register = () => {
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 ml-1">
+            <label className="text-sm font-medium text-azulUnegDark ml-1">
               Semestre Actual
             </label>
             <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
               <input
                 type="number"
                 name="currentSemester"
@@ -181,26 +184,28 @@ const Register = () => {
                 max="10"
                 value={formData.currentSemester}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                className="lr-input"
                 placeholder="Ej. 7"
               />
             </div>
           </div>
 
           <div className="space-y-1">
-            <label className="text-sm font-medium text-slate-700 ml-1">
+            <label className="text-sm font-medium text-azulUnegDark ml-1">
               Contraseña
             </label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-5 h-5" />
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
+              <button id="eye-password" className="absolute right-4 top-1/2 -translate-y-1/2 text-azulUnegDark/75 w-5 h-5" type="button" onClick={() => setShowPassword(!showPassword)}>
+              {showPassword ? <FontAwesomeIcon icon={faEyeSlash} />:<FontAwesomeIcon icon={faEye} />}</button>
               <input
-                type="password"
+                type={showPassword ? "text" : "password"} 
                 name="password"
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                placeholder="••••••••"
+                className="lr-input"
+                placeholder="*********"
               />
             </div>
           </div>
@@ -209,7 +214,7 @@ const Register = () => {
             type="submit"
             disabled={loading}
             className={cn(
-              "w-full bg-primary hover:bg-primary-container text-white font-semibold py-3 rounded-xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 mt-4",
+              "w-full bg-azulUneg hover:bg-azulUnegDark hover:text-on-primary text-primary font-semibold py-3 rounded-4xl shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 mt-4",
               loading && "opacity-70 cursor-not-allowed",
             )}
           >
@@ -219,17 +224,17 @@ const Register = () => {
                 Creando cuenta...
               </>
             ) : (
-              "Registrarse"
+              "REGISTRARSE"
             )}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <p className="text-slate-500 text-sm">
+          <p className="text-azulUneg text-sm">
             ¿Ya tienes una cuenta?{" "}
             <Link
               to="/login"
-              className="text-primary font-semibold hover:underline"
+              className="text-azulUnegDark font-semibold hover:underline"
             >
               Inicia sesión
             </Link>

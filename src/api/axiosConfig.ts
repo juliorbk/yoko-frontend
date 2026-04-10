@@ -1,11 +1,10 @@
 import axios from "axios";
 
 const api = axios.create({
-  // 🚨 1. Pega aquí tu nueva URL de LocalTunnel (no olvides el /api al final)
-  baseURL: "https://happy-dogs-vanish.loca.lt/api",
+  // URL de LocalTunnel 
+  baseURL: "https://breezy-rats-help.loca.lt/api", //Cambiar cada que se abra el proyecto de nuevo el LocalTunnel
   headers: {
     "Content-Type": "application/json",
-    // 🚨 2. Este es el nuevo header para saltar la pantalla de LocalTunnel
     "Bypass-Tunnel-Reminder": "true",
   },
 });
