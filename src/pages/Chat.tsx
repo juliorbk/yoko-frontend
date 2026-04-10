@@ -76,6 +76,7 @@ const Chat = () => {
       const response = await api.get(`/sessions/${chat.id}`);
       const history: Message[] = response.data || [];
       setMessages(history);
+      console.log(history);
       setSession(chat);
     } catch (err) {
       console.error("Error loading chat history", err);
