@@ -6,7 +6,6 @@ import {
   User as UserIcon,
   MessageSquare,
   Menu,
-  X,
   Moon,
   Sun,
   SquarePen,
@@ -133,7 +132,7 @@ const Chat = () => {
     const userMsg: Message = {
       id: Date.now().toString(),
       content: input,
-      role: "user",
+      role: "USER",
       timestamp: new Date().toISOString(),
     };
 
@@ -144,8 +143,8 @@ const Chat = () => {
     try {
       const res = await api.post(
         `/sessions/${activeSessionId}/messages`,
-        JSON.stringify(userMsg.content),
-        { headers: { "Content-Type": "application/json" } },
+        userMsg.content, 
+        { headers: { "Content-Type": "text/plain" } },
       );
 
       const assistantMsg: Message = {
@@ -217,6 +216,7 @@ const Chat = () => {
       >
         <div className=" w-full p-6 flex items-center gap-3 border-b border-slate-700/50">
           <button
+          onClick={startNewChat}
             className={
               theme === "light"
                 ? "w-full  flex items-center gap-3 p-3 rounded-xl  text-azulUnegDark font-medium hover:bg-[#010064] hover:text-primary transition-colors text-left group cursor-pointer"
@@ -457,22 +457,22 @@ const Chat = () => {
                 key={msg.id}
                 className={cn(
                   "flex w-full",
-                  msg.role === "user" ? "justify-end" : "justify-start",
+                  msg.role === "USER" ? "justify-end" : "justify-start",
                 )}
               >
                 <div
                   className={cn(
                     "max-w-[85%] lg:max-w-[70%] flex gap-3",
-                    msg.role === "user" ? "flex-row-reverse" : "flex-row",
+                    msg.role === "USER" ? "flex-row-reverse" : "flex-row",
                   )}
                 >
                   <div
                     className={cn(
-                      "w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-sm",
-                      msg.role === "user" ? "bg-slate-200" : "bg-primary",
+                      "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-sm",
+                      msg.role === "USER" ? "bg-slate-200" : "bg-primary",
                     )}
                   >
-                    {msg.role === "user" ? (
+                    {msg.role === "USER" ? (
                       <UserIcon className="w-4 h-4 text-slate-600" />
                     ) : (
                       <Bot className="w-4 h-4 text-white" />
@@ -481,7 +481,7 @@ const Chat = () => {
                   <div
                     className={cn(
                       "p-4 rounded-2xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap",
-                      msg.role === "user"
+                      msg.role === "USER"
                         ? "bg-aquaUneg text-white rounded-tr-none"
                         : "bg-primary text-slate-800 rounded-tl-none border border-slate-200",
                     )}
@@ -496,7 +496,7 @@ const Chat = () => {
           {loading && (
             <div className="flex justify-start">
               <div className="flex gap-3 max-w-[85%] lg:max-w-[70%]">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center flex-shrink-0 mt-1 shadow-sm">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center shrink-0 mt-1 shadow-sm">
                   <Bot className="w-4 h-4 text-white" />
                 </div>
                 <div className="bg-slate-100 text-slate-500 px-4 py-3 rounded-2xl rounded-tl-none flex items-center gap-3 border border-slate-200">

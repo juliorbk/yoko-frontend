@@ -2,7 +2,7 @@ import axios from "axios";
 
 const api = axios.create({
   // URL de LocalTunnel 
-  baseURL: "https://tall-tools-cheat.loca.lt/api", //Cambiar cada que se abra el proyecto de nuevo el LocalTunnel
+  baseURL: "https://localtunnel.me/api", //Cambiar cada que se abra el proyecto de nuevo el LocalTunnel
   headers: {
     "Content-Type": "application/json",
     "Bypass-Tunnel-Reminder": "true",
