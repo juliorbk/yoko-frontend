@@ -8,7 +8,7 @@ export interface User {
 export interface Message {
   id: string;
   content: string;
-  role: "user" | "assistant";
+  role: "USER" | "assistant";
   timestamp: string;
 }
 
