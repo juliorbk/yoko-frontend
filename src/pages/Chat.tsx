@@ -234,8 +234,8 @@ const Chat = () => {
           </button>
         </div>
         {/*Historial de chats*/}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          <div className="space-y-2">
+        <div  id="chatList" className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div  className="space-y-2">
             <h1 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-2">
               Chats
             </h1>
