@@ -11,6 +11,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
+ 
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -23,6 +24,7 @@ function App() {
         <Route path="/" element={<Navigate to="/chat" replace />} />
       </Routes>
     </Router>
+
   );
 }
 

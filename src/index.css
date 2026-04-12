@@ -17,7 +17,7 @@
 
 @layer base {
   body {
-    @apply bg-surface text-slate-900 font-sans antialiased;
+    @apply bg-surface text-slate-900 font-sans antialiased overflow-y-auto;
   }
 }
 
@@ -81,8 +81,8 @@
  display:grid;
  min-height: 100dvh;
  grid-template-columns: 1fr 4fr;
- grid-template-rows: 80dvh 20dvh;
-  grid-template-areas:
+ grid-template-rows: minmax(308px, 83dvh ) minmax(100px, 17dvh);
+ grid-template-areas:
     "sidebar main"
     "sidebar input";
 }
@@ -91,7 +91,7 @@
  display:grid;
  min-height: 100dvh;
  grid-template-columns: 0 4fr;
- grid-template-rows:  80dvh 20dvh;
+ grid-template-rows: minmax(308px, 83dvh ) minmax(100px, 17dvh);
   grid-template-areas:
     "sidebar main"
     "sidebar input";
@@ -107,7 +107,16 @@
 
 .messageBox{
   grid-area:input;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
 }
+body::-webkit-scrollbar {
+  width: 0rem;
+}
+
+
 
 #chatList::-webkit-scrollbar, #panel::-webkit-scrollbar {
   width: 0.4rem;
@@ -119,9 +128,27 @@
   border-radius: 1rem;
 }
 
+
 #chatList::-webkit-scrollbar-thumb, #panel::-webkit-scrollbar-thumb {
   background-color: var(--color-azulUneg);
   box-shadow: inset 0 0 6px rgba(239, 239, 239, 0.377);
   border-radius: 1rem;
 }
 
+@media (max-width: 1023px) {
+  .container-chat,
+  .container-chat2 {
+    grid-template-columns: 1fr;
+    grid-template-rows: 82dvh 18dvh;
+    grid-template-areas:
+      "main"
+      "input";
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+  }
+}

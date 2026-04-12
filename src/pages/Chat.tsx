@@ -184,8 +184,8 @@ const Chat = () => {
     <div
       className={
         theme === "light"
-          ? `${containerStyle} bg-on-primary overflow-hidden`
-          : `${containerStyle} bg-[#181C36] overflow-hidden`
+          ? `${containerStyle} bg-on-primary overflow-hidden min-w-86 min-h-150`
+          : `${containerStyle} bg-[#181C36] overflow-hidden min-w-86 min-h-150`
       }
     >
       {/* Mobile Sidebar Overlay */}
@@ -201,20 +201,20 @@ const Chat = () => {
         className={
           theme === "light"
             ? cn(
-                ` ${sidebarStyle} sidebar inset-y-0 left-0 w-72 bg-linear-to-b from-[#CCE9FF] to-primary/80 text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
+                ` ${sidebarStyle} sidebar inset-y-0 left-0 w-auto bg-linear-to-b from-[#CCE9FF] to-[#C1D9EB] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
                 sidebarOpen
-                  ? "translate-x-0"
+                  ? "translate-x-0" 
                   : "-translate-x-full lg:translate-x-0",
               )
             : cn(
-                ` ${sidebarStyle} sidebar inset-y-0 left-0 w-72 bg-linear-to-b from-[#02385A] to-[#021C41] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
+                ` ${sidebarStyle} sidebar inset-y-0 left-0 w-auto bg-linear-to-b from-[#02385A] to-[#021C41] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
                 sidebarOpen
                   ? "translate-x-0"
                   : "-translate-x-full lg:translate-x-0",
               )
         }
       >
-        <div className=" w-full p-6 flex items-center gap-3 border-b border-slate-700/50">
+        <div className={theme==='light'?" w-full p-6 flex items-center gap-3 border-b border-slate-700/50":" w-full p-6 flex items-center gap-3 border-b border-white/20"}>
           <button
           onClick={startNewChat}
             className={
@@ -283,7 +283,7 @@ const Chat = () => {
         {/* User Profile Configuracion */}
         <details
           open={modalOpen}
-          className=" w-full flex items-center justify-center gap-3 border-t border-slate-800/80"
+          className={theme === 'light'?" w-full flex items-center justify-center gap-3 border-t border-slate-800/80":" w-full flex items-center justify-center gap-3 border-t border-white/20"}
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) {
               setModalOpen(false);
@@ -360,7 +360,7 @@ const Chat = () => {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="main flex-1 flex flex-col relative min-w-0 ">
+      <main className="main flex-1 flex flex-col relative min-w-86 h-auto ">
         {/* Header */}
         <header
           className={
@@ -402,9 +402,63 @@ const Chat = () => {
         {/* Messages */}
         <div
           id="panel"
-          className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6  mask-b-from-80% mask-b-to-100%"
+          className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6  mask-b-from-80% mask-b-to-115%"
         >
-          {messages.length === 0 ? (
+          
+          {loadingHistory ? (
+            <div className="h-full w-full flex flex-col items-center justify-center gap-4">
+              <div
+                className={
+                  theme === "light"
+                    ? "w-16 h-16 bg-primary rounded-2xl flex items-center justify-center shadow-md"
+                    : "w-16 h-16 bg-[#1A3D63] rounded-2xl flex items-center justify-center shadow-md"
+                }
+              >
+                <Loader2 className="w-8 h-8 text-azulUneg animate-spin" />
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <p
+                  className={
+                    theme === "light"
+                      ? "text-sm font-semibold text-azulUnegDark"
+                      : "text-sm font-semibold text-on-primary"
+                  }
+                >
+                  Cargando conversación...
+                </p>
+                <p className="text-xs text-slate-400">Esto tomará un momento</p>
+              </div>
+              {/* Skeleton de mensajes */}
+              <div className="w-full  max-w-2xl px-[15%] space-y-4 mt-4 ">
+                {[...Array(3)].map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      "flex gap-3 w-auto",
+                      i % 2 === 0 ? "justify-start" : "justify-end flex-row-reverse",
+                    )}
+                  >
+                    <div
+                      className={
+                        theme === "light"
+                          ? "w-8 h-8 rounded-lg bg-primary/50 animate-pulse shrink-0"
+                          : "w-8 h-8 rounded-lg bg-[#1A3D63]/80 animate-pulse shrink-0"
+                      }
+                    />
+                    <div
+                      className={cn(
+                        "h-10 rounded-2xl animate-pulse",
+                        i % 2 === 0 ? "w-[80%]" : "w-[70%]",
+                        theme === "light"
+                          ? "bg-primary/40"
+                          : "bg-[#1A3D63]/60",
+                      )}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center max-w-md mx-auto space-y-6">
               <div
                 className={
@@ -516,13 +570,13 @@ const Chat = () => {
       <div
         className={
           theme == "light"
-            ? "messageBox p-4  bg-white border-t border-slate-200"
-            : "messageBox p-4  bg-[#14172d]/80 border-t border-[#14172d]"
+            ? "messageBox p-8  bg-white border-t border-slate-200 "
+            : "messageBox p-8  bg-[#14172d]/80 border-t border-[#14172d]"
         }
       >
         <form
           onSubmit={handleSendMessage}
-          className="max-w-4xl mx-auto relative"
+          className="w-full  mx-auto relative"
         >
           {/* 🟢 CORRECCIÓN: Fusioné los classNames duplicados en el input basándome en tu lógica de temas */}
           <input
