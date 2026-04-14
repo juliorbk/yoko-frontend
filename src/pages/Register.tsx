@@ -123,7 +123,7 @@ const Register = () => {
 
           <div className="space-y-1">
             <label className="text-sm font-medium text-azulUnegDark">
-              Correo Institucional
+              Correo Electrónico
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
