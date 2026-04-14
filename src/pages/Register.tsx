@@ -51,7 +51,6 @@ const Register = () => {
         password: formData.password,
         currentSemester: parseInt(formData.currentSemester), // <-- Spring exige un Integer
       };
-      console.log("Payload enviado al backend:", payload); // Debug: Verificar el payload antes de enviarlo
       await api.post("/auth/register", payload);
       setSuccess(true);
       setTimeout(() => navigate("/login"), 2000);
