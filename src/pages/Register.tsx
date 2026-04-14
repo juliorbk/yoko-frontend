@@ -85,7 +85,7 @@ const Register = () => {
       <div className="w-full max-w-md rounded-2xl shadow-xl p-8 border border-primary/50">
         <div className="text-center mb-8">
           <div className="image-container">
-            <img src="/yoko.png" className="brightness-115 p-0" />
+            <img src="/yoko.svg" className="brightness-115 p-0" />
           </div>
           <h1 className="text-2xl font-bold text-azulUnegDark">
             Únete a Yoko AI
