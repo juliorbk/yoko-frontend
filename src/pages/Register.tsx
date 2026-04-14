@@ -161,11 +161,18 @@ const Register = () => {
                 <option value="Ingeniería Industrial">
                   Ingeniería Industrial
                 </option>
+                <option value="Ingenieria en Materiales">
+                  Ingenieria en Materiales
+                </option>
                 <option value="Administración de Empresas">
                   Administración de Empresas
                 </option>
                 <option value="Contaduría Pública">Contaduría Pública</option>
-                <option value="Educación">Educación</option>
+                <option value="Ciencias Fiscales">Ciencias Fiscales</option>
+                <option value="Ciencias Ambientales">
+                  Ciencias Ambientales
+                </option>
+                <option value="Turismo">Turismo</option>
               </select>
             </div>
           </div>
