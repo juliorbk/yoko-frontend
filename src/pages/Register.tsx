@@ -14,7 +14,6 @@ import { cn } from "../lib/utils";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faEye, faEyeSlash } from "@fortawesome/free-solid-svg-icons";
 
-
 const Register = () => {
   // 1. Alinear los nombres exactamente con el DTO de Spring Boot
   const [formData, setFormData] = useState({
@@ -52,7 +51,7 @@ const Register = () => {
         password: formData.password,
         currentSemester: parseInt(formData.currentSemester), // <-- Spring exige un Integer
       };
-
+      console.log("Payload enviado al backend:", payload); // Debug: Verificar el payload antes de enviarlo
       await api.post("/auth/register", payload);
       setSuccess(true);
       setTimeout(() => navigate("/login"), 2000);
@@ -87,9 +86,11 @@ const Register = () => {
       <div className="w-full max-w-md rounded-2xl shadow-xl p-8 border border-primary/50">
         <div className="text-center mb-8">
           <div className="image-container">
-             <img  src="src/assets/yoko.svg" className="brightness-115 p-0" />
+            <img src="src/assets/yoko.svg" className="brightness-115 p-0" />
           </div>
-          <h1 className="text-2xl font-bold text-azulUnegDark">Únete a Yoko AI</h1>
+          <h1 className="text-2xl font-bold text-azulUnegDark">
+            Únete a Yoko AI
+          </h1>
           <p className="text-slate-500 mt-2">
             Crea tu cuenta de estudiante UNEG
           </p>
@@ -196,10 +197,20 @@ const Register = () => {
             </label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
-              <button id="eye-password" className="absolute right-4 top-1/2 -translate-y-1/2 text-azulUnegDark/75 w-5 h-5" type="button" onClick={() => setShowPassword(!showPassword)}>
-              {showPassword ? <FontAwesomeIcon icon={faEyeSlash} />:<FontAwesomeIcon icon={faEye} />}</button>
+              <button
+                id="eye-password"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-azulUnegDark/75 w-5 h-5"
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? (
+                  <FontAwesomeIcon icon={faEyeSlash} />
+                ) : (
+                  <FontAwesomeIcon icon={faEye} />
+                )}
+              </button>
               <input
-                type={showPassword ? "text" : "password"} 
+                type={showPassword ? "text" : "password"}
                 name="password"
                 required
                 value={formData.password}
