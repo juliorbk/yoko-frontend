@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  // URL de LocalTunnel 
-  baseURL: "https://big-chairs-fall.loca.lt/api", //Cambiar cada que se abra el proyecto de nuevo el LocalTunnel
+  // URL de LocalTunnel
+  baseURL: "https://early-otters-lead.loca.lt/api", //Cambiar cada que se abra el proyecto de nuevo el LocalTunnel
   headers: {
     "Content-Type": "application/json",
     "Bypass-Tunnel-Reminder": "true",

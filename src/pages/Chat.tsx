@@ -91,18 +91,18 @@ const Chat = () => {
     setSidebarOpen(false);
   };
 
-  const deleteSession = async (chatId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await api.delete(`/sessions/${chatId}`);
-      if (session?.id === chatId) {
-        startNewChat();
-      }
-      if (user) fetchRecentChats(user.id);
-    } catch (err) {
-      console.error("Error deleting session", err);
-    }
-  };
+  // const deleteSession = async (chatId: string, e: React.MouseEvent) => {
+  //   e.stopPropagation();
+  //   try {
+  //     await api.delete(`/sessions/${chatId}`);
+  //     if (session?.id === chatId) {
+  //       startNewChat();
+  //     }
+  //     if (user) fetchRecentChats(user.id);
+  //   } catch (err) {
+  //     console.error("Error deleting session", err);
+  //   }
+  // };
 
   // ─── Send message ────────────────────────────────────────────────────────────
   const handleSendMessage = async (e: React.FormEvent) => {
