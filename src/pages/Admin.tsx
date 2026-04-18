@@ -435,7 +435,7 @@ const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
       // Ajusta "ADMIN" al texto exacto que devuelva tu Spring Boot (ej: "ROLE_ADMIN")
       if (data.user.role !== "ADMIN") {
         setError("Acceso denegado: No tienes permisos de administrador.");
-        return; // Detenemos la ejecución, no guardamos token ni logueamos
+        return; // Detenemos la ejecución, no guardamos token ni logueamos el usuario
       }
 
       // Si pasa la validación, lo dejamos entrar
