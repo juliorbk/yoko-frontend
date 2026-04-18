@@ -7,11 +7,11 @@ import {
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Chat from "./pages/Chat";
+import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
- 
     <Router>
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -21,10 +21,11 @@ function App() {
           <Route path="/chat" element={<Chat />} />
         </Route>
 
+        <Route path="/admin" element={<Admin />} />
+
         <Route path="/" element={<Navigate to="/chat" replace />} />
       </Routes>
     </Router>
-
   );
 }
 
