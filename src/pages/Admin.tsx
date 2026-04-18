@@ -7,6 +7,7 @@ import {
   type DragEvent,
   type ChangeEvent,
   type CSSProperties,
+  type JSX,
 } from "react";
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
@@ -121,36 +122,7 @@ const MOCK_STATS: Stats = {
   ],
 };
 
-const MOCK_USERS: User[] = Array.from({ length: 18 }, (_, i) => ({
-  id: `u-${i + 1}`,
-  name: [
-    "Carlos Pérez",
-    "María González",
-    "Luis Rodríguez",
-    "Ana Martínez",
-    "José García",
-    "Laura Hernández",
-    "Pedro López",
-    "Sofía Díaz",
-    "Miguel Torres",
-    "Valentina Ruiz",
-    "Andrés Castro",
-    "Camila Vargas",
-    "Fernando Mora",
-    "Isabella Reyes",
-    "Alejandro Silva",
-    "Daniela Jiménez",
-    "Sebastián Núñez",
-    "Gabriela Romero",
-  ][i],
-  email: `estudiante${i + 1}@uneg.edu.ve`,
-  sessions: Math.floor(Math.random() * 30) + 1,
-  messages: Math.floor(Math.random() * 200) + 10,
-  lastActive: new Date(
-    Date.now() - Math.random() * 7 * 86400000,
-  ).toLocaleDateString("es-VE"),
-  status: Math.random() > 0.15 ? "activo" : "inactivo",
-}));
+
 
 const MOCK_DOCS: Doc[] = [
   {
