@@ -48,7 +48,7 @@ interface AuthResponse {
   user: UserData;
 }
 interface TopQuestion {
-  q: string;
+  question: string;
   count: number;
 }
 
@@ -107,22 +107,20 @@ interface Theme extends Record<string, string> {
 }
 
 // ─── MOCK DATA ────────────────────────────────────────────────────────────────
-const MOCK_STATS: Stats = {
-  totalUsers: 348,
-  activeSessions: 12,
-  totalMessages: 5821,
-  totalDocuments: 23,
-  messagesLastWeek: [42, 87, 63, 110, 95, 78, 134],
-  topQuestions: [
-    { q: "¿Cómo me inscribo en pasantías?", count: 84 },
-    { q: "¿Cuál es el pensum de Informática?", count: 71 },
-    { q: "¿Fechas de inscripción?", count: 65 },
-    { q: "¿Cómo solicito constancia de estudios?", count: 58 },
-    { q: "¿Requisitos para trabajo de grado?", count: 47 },
-  ],
-};
-
-
+// const MOCK_STATS: Stats = {
+//   totalUsers: 348,
+//   activeSessions: 12,
+//   totalMessages: 5821,
+//   totalDocuments: 23,
+//   messagesLastWeek: [42, 87, 63, 110, 95, 78, 134],
+//   topQuestions: [
+//     { question: "¿Cómo me inscribo en pasantías?", count: 84 },
+//     { question: "¿Cuál es el pensum de Informática?", count: 71 },
+//     { question: "¿Fechas de inscripción?", count: 65 },
+//     { question: "¿Cómo solicito constancia de estudios?", count: 58 },
+//     { question: "¿Requisitos para trabajo de grado?", count: 47 },
+//   ],
+// };
 
 const MOCK_DOCS: Doc[] = [
   {
@@ -174,13 +172,11 @@ function useStats(): { data: Stats | null; loading: boolean } {
   const [data, setData] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    // REAL: api<Stats>("/admin/stats").then(setData).finally(() => setLoading(false));
-    // MOCK:
-    setTimeout(() => {
-      setData(MOCK_STATS);
-      setLoading(false);
-    }, 400);
+    api<Stats>("/admin/stats")
+      .then(setData)
+      .finally(() => setLoading(false));
   }, []);
+
   return { data, loading };
 }
 
@@ -220,6 +216,7 @@ const CATEGORIAS: Record<string, string[]> = {
   calendario: ["academico", "administrativo"],
   informacion_general: ["historia", "mision_vision", "autoridades", "contacto"],
   tramites: ["constancias", "retiro", "equivalencias", "cambio_carrera"],
+  horario: ["semestre 8"], //modificar según las subcategorías que maneje tu backend
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -1418,7 +1415,7 @@ const Overview: FC = () => {
                     marginRight: 12,
                   }}
                 >
-                  {q.q}
+                  {q.question}
                 </span>
                 <span
                   style={{
