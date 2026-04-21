@@ -143,7 +143,7 @@ const Chat = () => {
     try {
       const res = await api.post(
         `/sessions/${activeSessionId}/messages`,
-        userMsg.content, 
+        userMsg.content,
         { headers: { "Content-Type": "text/plain" } },
       );
 
@@ -163,7 +163,7 @@ const Chat = () => {
         {
           id: (Date.now() + 1).toString(),
           content:
-            "Error: No me pude comunicar con la base de datos. Revisa el backend.",
+            "Error: Tu mensaje no pudo ser enviado. Por favor, intenta de nuevo.",
           role: "assistant",
           timestamp: new Date().toISOString(),
         },
@@ -203,7 +203,7 @@ const Chat = () => {
             ? cn(
                 ` ${sidebarStyle} sidebar inset-y-0 left-0 w-auto bg-linear-to-b from-[#CCE9FF] to-[#C1D9EB] text-white z-50 transform transition-transform duration-300 ease-in-out flex flex-col`,
                 sidebarOpen
-                  ? "translate-x-0" 
+                  ? "translate-x-0"
                   : "-translate-x-full lg:translate-x-0",
               )
             : cn(
@@ -214,9 +214,15 @@ const Chat = () => {
               )
         }
       >
-        <div className={theme==='light'?" w-full p-6 flex items-center gap-3 border-b border-slate-700/50":" w-full p-6 flex items-center gap-3 border-b border-white/20"}>
+        <div
+          className={
+            theme === "light"
+              ? " w-full p-6 flex items-center gap-3 border-b border-slate-700/50"
+              : " w-full p-6 flex items-center gap-3 border-b border-white/20"
+          }
+        >
           <button
-          onClick={startNewChat}
+            onClick={startNewChat}
             className={
               theme === "light"
                 ? "w-full  flex items-center gap-3 p-3 rounded-xl  text-azulUnegDark font-medium hover:bg-[#010064] hover:text-primary transition-colors text-left group cursor-pointer"
@@ -234,8 +240,8 @@ const Chat = () => {
           </button>
         </div>
         {/*Historial de chats*/}
-        <div  id="chatList" className="flex-1 overflow-y-auto p-4 space-y-6">
-          <div  className="space-y-2">
+        <div id="chatList" className="flex-1 overflow-y-auto p-4 space-y-6">
+          <div className="space-y-2">
             <h1 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider ml-2">
               Chats
             </h1>
@@ -283,7 +289,11 @@ const Chat = () => {
         {/* User Profile Configuracion */}
         <details
           open={modalOpen}
-          className={theme === 'light'?" w-full flex items-center justify-center gap-3 border-t border-slate-800/80":" w-full flex items-center justify-center gap-3 border-t border-white/20"}
+          className={
+            theme === "light"
+              ? " w-full flex items-center justify-center gap-3 border-t border-slate-800/80"
+              : " w-full flex items-center justify-center gap-3 border-t border-white/20"
+          }
           onBlur={(e) => {
             if (!e.currentTarget.contains(e.relatedTarget)) {
               setModalOpen(false);
@@ -404,7 +414,6 @@ const Chat = () => {
           id="panel"
           className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-6  mask-b-from-80% mask-b-to-115%"
         >
-          
           {loadingHistory ? (
             <div className="h-full w-full flex flex-col items-center justify-center gap-4">
               <div
@@ -435,7 +444,9 @@ const Chat = () => {
                     key={i}
                     className={cn(
                       "flex gap-3 w-auto",
-                      i % 2 === 0 ? "justify-start" : "justify-end flex-row-reverse",
+                      i % 2 === 0
+                        ? "justify-start"
+                        : "justify-end flex-row-reverse",
                     )}
                   >
                     <div
@@ -449,9 +460,7 @@ const Chat = () => {
                       className={cn(
                         "h-10 rounded-2xl animate-pulse",
                         i % 2 === 0 ? "w-[80%]" : "w-[70%]",
-                        theme === "light"
-                          ? "bg-primary/40"
-                          : "bg-[#1A3D63]/60",
+                        theme === "light" ? "bg-primary/40" : "bg-[#1A3D63]/60",
                       )}
                     />
                   </div>
@@ -574,10 +583,7 @@ const Chat = () => {
             : "messageBox p-8  bg-[#14172d]/80 border-t border-[#14172d]"
         }
       >
-        <form
-          onSubmit={handleSendMessage}
-          className="w-full  mx-auto relative"
-        >
+        <form onSubmit={handleSendMessage} className="w-full  mx-auto relative">
           {/* 🟢 CORRECCIÓN: Fusioné los classNames duplicados en el input basándome en tu lógica de temas */}
           <input
             type="text"
