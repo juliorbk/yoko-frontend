@@ -59,7 +59,7 @@ const Login = () => {
           )}
           {/**Input correo */}
           <div id="entrada1" className="space-y-2 group">
-            <label className="lr-label">Correo Institucional</label>
+            <label className="lr-label">Correo Electrónico</label>
             <div className="relative">
               <Mail className="input-icon" />
               <input
