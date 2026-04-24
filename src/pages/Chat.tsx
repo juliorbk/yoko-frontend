@@ -495,10 +495,10 @@ const Chat = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full">
                 {[
-                  "¿Cuándo son las inscripciones?",
-                  "¿Cómo pido un récord académico?",
-                  "Explícame Cálculo I",
-                  "Horarios de biblioteca",
+                  "¿Como me inscribo?",
+                  "¿Como son las pasantías?",
+                  "¿Que carreras ofrecen?",
+                  "Horarios de informática",
                 ].map((suggestion, i) => (
                   <button
                     key={i}
