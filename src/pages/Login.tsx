@@ -22,14 +22,20 @@ const Login = () => {
     try {
       const response = await api.post("/auth/login", { email, password });
       const { token, user } = response.data;
+      
 
       localStorage.setItem("yoko_token", token);
       localStorage.setItem("yoko_user", JSON.stringify(user));
 
-      navigate("/chat");
+      if (user?.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/chat");
+      }
     } catch (err: any) {
       setError(
-        err.response?.data?.message ||
+        err.response?.data?.error ||
+          err.response?.data?.message ||
           "Credenciales inválidas. Inténtalo de nuevo.",
       );
     } finally {
@@ -38,70 +44,65 @@ const Login = () => {
   };
 
   return (
-    //Contendor principal
     <div className="fondo-lr">
       <div className="w-full max-w-md lr-form rounded-2xl shadow-xl p-8 border border-primary/50">
+        {/* Header */}
         <div className="text-center mb-8">
           <div className="image-container">
             <img src="/yoko.svg" className="brightness-115 p-0" />
           </div>
-          <h1 className="text-2xl font-bold  text-azulUneg">
+          <h1 className="text-2xl font-bold text-azulUneg">
             ¡BIENVENIDO A YOKO!
           </h1>
         </div>
-        {/**Formulario */}
+
         <form onSubmit={handleLogin} className="space-y-6">
+          {/* Error */}
           {error && (
-            <div className="absolute top-4 left-1/48 bg-white border border-azulUnegDark text-azulUnegDark px-4 py-3 rounded-xl flex items-center gap-3 text-sm animate-in fade-in slide-in-from-top-2">
+            <div className="bg-white border border-azulUnegDark text-azulUnegDark px-4 py-3 rounded-xl flex items-center gap-3 text-sm">
               <AlertCircle className="w-5 h-5 shrink-0" />
               <p>{error}</p>
             </div>
           )}
-          {/**Input correo */}
-          <div id="entrada1" className="space-y-2 group">
-            <label className="lr-label">Correo Electrónico</label>
-            <div className="relative">
-              <Mail className="input-icon" />
-              <input
-                id="itEmail"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="lr-input"
-                placeholder=""
-              />
-            </div>
+
+          {/* Correo */}
+          <div className="relative">
+            <Mail className="input-icon" />
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="lr-input"
+              placeholder="Correo Electrónico"
+            />
           </div>
-          {/**Input contrasenna */}
-          <div id="entrada2" className="space-y-2 group">
-            <label className="lr-label">Contraseña</label>
-            <div className="relative">
-              <Lock className="input-icon" />
-              <button
-                id="eye-password"
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-azulUnegDark/75 w-5 h-5"
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <FontAwesomeIcon icon={faEyeSlash} />
-                ) : (
-                  <FontAwesomeIcon icon={faEye} />
-                )}
-              </button>
-              <input
-                id="itPass"
-                type={showPassword ? "text" : "password"}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="lr-input"
-                placeholder=" "
-              />
-            </div>
+
+          {/* Contraseña */}
+          <div className="relative">
+            <Lock className="input-icon" />
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 text-azulUnegDark/75 w-5 h-5"
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <FontAwesomeIcon icon={faEyeSlash} />
+              ) : (
+                <FontAwesomeIcon icon={faEye} />
+              )}
+            </button>
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="lr-input"
+              placeholder="Contraseña"
+            />
           </div>
-          {/**Boton iniciar sesión */}
+
+          {/* Botón */}
           <button
             type="submit"
             disabled={loading}
@@ -120,8 +121,8 @@ const Login = () => {
             )}
           </button>
         </form>
-        {/**rediccion a register */}
-        <div className="mt-8 text-center">
+
+        <div className="mt-8 text-center space-y-2">
           <p className="text-azulUneg text-sm">
             ¿No tienes una cuenta?{" "}
             <Link
@@ -129,6 +130,15 @@ const Login = () => {
               className="text-azulUnegDark font-semibold hover:underline"
             >
               Regístrate aquí
+            </Link>
+          </p>
+          <p className="text-azulUneg text-sm">
+            ¿Registrar una organización?{" "}
+            <Link
+              to="/register-organization"
+              className="text-azulUnegDark font-semibold hover:underline"
+            >
+              Click aquí
             </Link>
           </p>
         </div>

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -10,7 +11,6 @@ import {
   Sun,
   SquarePen,
   Loader2,
-  GraduationCap,
   ToggleLeft,
   ToggleRight,
   Bot,
@@ -40,15 +40,10 @@ const Chat = () => {
 
   // ─── Init ────────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const storedUser = localStorage.getItem("yoko_user");
-    if (storedUser) {
-      const parsedUser: User = JSON.parse(storedUser);
-      setUser(parsedUser);
-      //createSession(parsedUser.id);
-      fetchRecentChats(parsedUser.id);
-    } else {
-      navigate("/login");
-    }
+    const storedUser: User = JSON.parse(
+      localStorage.getItem("yoko_user") || "{}",
+    );
+    if (storedUser.id) fetchRecentChats(storedUser.id);
   }, [navigate]);
 
   useEffect(() => {
@@ -56,9 +51,9 @@ const Chat = () => {
   }, [messages]);
 
   // ─── API helpers ─────────────────────────────────────────────────────────────
-  const fetchRecentChats = useCallback(async (userId: string) => {
+  const fetchRecentChats = useCallback(async (chatId: string) => {
     try {
-      const response = await api.get(`/sessions/${userId}/chats`);
+      const response = await api.get(`/sessions/${chatId}`);
       const sessionList: ChatSession[] =
         response.data.content || response.data || [];
       setRecentChats(sessionList);
@@ -109,18 +104,26 @@ const Chat = () => {
     e.preventDefault();
     if (!input.trim() || loading) return;
 
+    // Leer una sola vez desde localStorage — nunca confiar en el estado `user`
+    // dentro de una función async, ya que puede estar desactualizado
+    const storedUser: User = JSON.parse(
+      localStorage.getItem("yoko_user") || "{}",
+    );
+    if (!storedUser?.id) {
+      console.error("No hay usuario en localStorage, redirigiendo al login.");
+      navigate("/login");
+      return;
+    }
+
     let activeSessionId = session?.id;
 
     if (!activeSessionId) {
       try {
         setLoading(true);
-        const storedUser: User = JSON.parse(
-          localStorage.getItem("yoko_user") || "{}",
-        );
         const newSessionRes = await api.post(`/sessions/${storedUser.id}`);
         activeSessionId = newSessionRes.data.id;
         setSession(newSessionRes.data);
-        fetchRecentChats(storedUser.id);
+        fetchRecentChats(storedUser.id); // ✅ usa storedUser, no user state
       } catch (error) {
         console.error("Error creating session:", error);
         alert("Error: No se pudo crear una sesión de chat con el servidor.");
@@ -155,7 +158,7 @@ const Chat = () => {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-      if (user) fetchRecentChats(user.id);
+      fetchRecentChats(storedUser.id); // ✅ usa storedUser, no user state
     } catch (err) {
       console.error(err);
       setMessages((prev) => [
@@ -359,10 +362,6 @@ const Chat = () => {
                 <p className="text-sm font-semibold truncate">
                   {user?.name || "Estudiante"}
                 </p>
-                <div className="flex items-center gap-1 text-[10px] text-on-primary">
-                  <GraduationCap className="w-3 h-3" />
-                  <span className="truncate">{user?.career || "Carrera"}</span>
-                </div>
               </div>
             </div>
           </div>

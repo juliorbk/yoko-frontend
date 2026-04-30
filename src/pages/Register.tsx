@@ -4,7 +4,6 @@ import {
   Mail,
   Lock,
   User,
-  GraduationCap,
   AlertCircle,
   Loader2,
   CheckCircle2,
@@ -19,8 +18,6 @@ const Register = () => {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    career: "", // Cambiado de 'major' a 'career'
-    currentSemester: "", // Agregado el semestre
     password: "",
   });
 
@@ -47,9 +44,7 @@ const Register = () => {
       const payload = {
         name: formData.name,
         email: formData.email,
-        career: formData.career,
         password: formData.password,
-        currentSemester: parseInt(formData.currentSemester), // <-- Spring exige un Integer
       };
       await api.post("/auth/register", payload);
       setSuccess(true);
@@ -135,64 +130,6 @@ const Register = () => {
                 onChange={handleChange}
                 className="lr-input"
                 placeholder="estudiante@uneg.edu.ve"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-azulUnegDark">
-              Carrera
-            </label>
-            <div className="lr-input pl-0! pr-0! relative">
-              <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
-              <select
-                name="career" // <-- CAMBIADO DE 'major' a 'career'
-                required
-                value={formData.career}
-                onChange={handleChange}
-                className="w-full bg-slate-50 pl-12 pr-4 focus:outline-none  transition-all appearance-none"
-              >
-                <option value="" disabled>
-                  Selecciona tu carrera
-                </option>
-                <option value="Ingeniería Informática">
-                  Ingeniería Informática
-                </option>
-                <option value="Ingeniería Industrial">
-                  Ingeniería Industrial
-                </option>
-                <option value="Ingenieria en Materiales">
-                  Ingenieria en Materiales
-                </option>
-                <option value="Administración de Empresas">
-                  Administración de Empresas
-                </option>
-                <option value="Contaduría Pública">Contaduría Pública</option>
-                <option value="Ciencias Fiscales">Ciencias Fiscales</option>
-                <option value="Ciencias Ambientales">
-                  Ciencias Ambientales
-                </option>
-                <option value="Turismo">Turismo</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-sm font-medium text-azulUnegDark ml-1">
-              Semestre Actual
-            </label>
-            <div className="relative">
-              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-azulUnegDark w-5 h-5" />
-              <input
-                type="number"
-                name="currentSemester"
-                required
-                min="1"
-                max="10"
-                value={formData.currentSemester}
-                onChange={handleChange}
-                className="lr-input"
-                placeholder="Ej. 7"
               />
             </div>
           </div>

@@ -1,10 +1,9 @@
 import {
   useState,
-  useRef,
   useEffect,
+  useCallback,
   type FC,
   type FormEvent,
-  type DragEvent,
   type ChangeEvent,
   type CSSProperties,
   type JSX,
@@ -17,7 +16,10 @@ const api = async <T = unknown,>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> => {
-  const token = localStorage.getItem("yoko_admin_token");
+  const token =
+    localStorage.getItem("yoko_admin_token") ||
+    localStorage.getItem("yoko_token");
+    
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -27,13 +29,23 @@ const api = async <T = unknown,>(
     },
   });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  // Algunos endpoints devuelven 204 sin body
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 };
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type TabId = "overview" | "users" | "docs";
-type DocStatus = "vectorizado" | "procesando" | "error" | "subiendo";
+// type DocStatus = "vectorizado" | "procesando" | "error" | "subiendo";
 type UserStatus = "activo" | "inactivo";
+type SectorType =
+  | "educacion"
+  | "hospitalidad"
+  | "corporativo"
+  | "ventas"
+  | "salud"
+  | "manufactura"
+  | "otro";
 
 interface UserData {
   id: string;
@@ -42,16 +54,20 @@ interface UserData {
   role: string;
   career: string;
   currentSemester: number;
+  sector?: SectorType;
+  organizationSector?: string;
+  organizationName?: string;
+  organizationId?: string | null;
 }
 interface AuthResponse {
   token: string;
   user: UserData;
+  role?: string;
 }
 interface TopQuestion {
   question: string;
   count: number;
 }
-
 interface Stats {
   totalUsers: number;
   activeSessions: number;
@@ -60,35 +76,30 @@ interface Stats {
   messagesLastWeek: number[];
   topQuestions: TopQuestion[];
 }
-
 interface User {
   id: string;
   name: string;
   email: string;
-  sessions: number;
-  messages: number;
+  sessionCount: number;
+  messageCount: number;
   lastActive: string;
   status: UserStatus;
 }
 
-interface Doc {
-  id: string | number;
-  name: string;
-  file: string;
-  chunks: number | string;
-  uploadedAt: string;
-  status: DocStatus;
+// ── Tipos del Knowledge Base (API real) ──────────────────────────────────────
+interface KBDoc {
+  id: string;
+  titulo: string;
+  categoria: string;
+  subcategoria?: string | null;
+  fuente?: string | null;
 }
-
-interface UploadEntry {
-  id: number;
-  name: string;
-  file: string;
-  status: DocStatus;
-  progress: number;
+interface PageResponse<T> {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  number: number; // página actual (0-indexed)
 }
-
-// Espeja exactamente el DataEntryRequest del backend
 interface DataEntryRequest {
   content: string;
   titulo: string;
@@ -96,87 +107,107 @@ interface DataEntryRequest {
   subcategoria: string;
 }
 
-interface Theme extends Record<string, string> {
-  "--bg": string;
-  "--card": string;
-  "--border": string;
-  "--text": string;
-  "--muted": string;
-  "--accent": string;
-  "--danger": string;
-}
+// ─── CATEGORÍAS DINÁMICAS POR SECTOR ─────────────────────────────────────────
+const CATEGORIAS_POR_SECTOR: Record<SectorType, Record<string, string[]>> = {
+  educacion: {
+    reglamento: ["general", "pasantias", "inscripcion", "disciplina", "grado"],
+    pensum: ["informatica", "civil", "industrial", "ambiental", "electronica"],
+    calendario: ["academico", "administrativo"],
+    informacion_general: [
+      "historia",
+      "mision_vision",
+      "autoridades",
+      "contacto",
+    ],
+    tramites: ["constancias", "retiro", "equivalencias", "cambio_carrera"],
+    horario: ["semestre_8"],
+  },
+  hospitalidad: {
+    reservas: ["confirmacion", "cancelacion", "modificacion"],
+    habitaciones: ["tipos", "precios", "disponibilidad"],
+    servicios: ["restaurante", "spa", "piscina", "gimnasio"],
+    informacion_general: ["historia", "ubicacion", "contacto"],
+    politicas: ["check_in_out", "mascotas", "fumadores"],
+  },
+  corporativo: {
+    recursos_humanos: ["contratacion", "nomina", "beneficios", "vacaciones"],
+    procesos: ["ventas", "marketing", "soporte"],
+    informacion_general: ["historia", "mision_vision", "contacto"],
+    politicas: ["codigo_etica", "seguridad", "remoto"],
+  },
+  ventas: {
+    productos: ["catalogo", "precios", "inventario"],
+    clientes: ["registro", "segmentacion", "historial"],
+    informacion_general: ["historia", "mision_vision", "contacto"],
+    politicas: ["devoluciones", "garantias", "envios"],
+  },
+  salud: {
+    pacientes: ["registro", "historial", "citas"],
+    procedimientos: ["consultas", "cirugias", "laboratorio"],
+    informacion_general: ["historia", "mision_vision", "contacto"],
+    politicas: ["privacidad", "urgencias", "visitas"],
+  },
+  manufactura: {
+    produccion: ["planificacion", "control_calidad", "mantenimiento"],
+    inventario: ["materias_primas", "producto_terminado", "almacen"],
+    informacion_general: ["historia", "mision_vision", "contacto"],
+    seguridad: ["normas", "epp", "emergencias"],
+  },
+  otro: {
+    informacion_general: ["historia", "mision_vision", "contacto"],
+    servicios: ["general", "consultas"],
+    politicas: ["general"],
+  },
+};
 
-// ─── MOCK DATA ────────────────────────────────────────────────────────────────
-// const MOCK_STATS: Stats = {
-//   totalUsers: 348,
-//   activeSessions: 12,
-//   totalMessages: 5821,
-//   totalDocuments: 23,
-//   messagesLastWeek: [42, 87, 63, 110, 95, 78, 134],
-//   topQuestions: [
-//     { question: "¿Cómo me inscribo en pasantías?", count: 84 },
-//     { question: "¿Cuál es el pensum de Informática?", count: 71 },
-//     { question: "¿Fechas de inscripción?", count: 65 },
-//     { question: "¿Cómo solicito constancia de estudios?", count: 58 },
-//     { question: "¿Requisitos para trabajo de grado?", count: 47 },
-//   ],
-// };
+const CATEGORY_COLORS: Record<string, { bg: string; text: string }> = {
+  reglamento: { bg: "#6366f118", text: "#6366f1" },
+  pensum: { bg: "#0ea5e918", text: "#0ea5e9" },
+  calendario: { bg: "#f59e0b18", text: "#f59e0b" },
+  informacion_general: { bg: "#22c55e18", text: "#22c55e" },
+  tramites: { bg: "#ec489918", text: "#ec4899" },
+  horario: { bg: "#f97316" + "18", text: "#f97316" },
+  reservas: { bg: "#6366f118", text: "#6366f1" },
+  habitaciones: { bg: "#0ea5e918", text: "#0ea5e9" },
+  servicios: { bg: "#22c55e18", text: "#22c55e" },
+  politicas: { bg: "#ec489918", text: "#ec4899" },
+  recursos_humanos: { bg: "#6366f118", text: "#6366f1" },
+  procesos: { bg: "#0ea5e918", text: "#0ea5e9" },
+  normativas: { bg: "#f59e0b18", text: "#f59e0b" },
+  productos: { bg: "#6366f118", text: "#6366f1" },
+  clientes: { bg: "#0ea5e918", text: "#0ea5e9" },
+  pacientes: { bg: "#22c55e18", text: "#22c55e" },
+  procedimientos: { bg: "#ec489918", text: "#ec4899" },
+  produccion: { bg: "#f97316" + "18", text: "#f97316" },
+  inventario: { bg: "#6366f118", text: "#6366f1" },
+  seguridad: { bg: "#0ea5e918", text: "#0ea5e9" },
+};
 
-const MOCK_DOCS: Doc[] = [
-  {
-    id: "d-1",
-    name: "Reglamento Estudiantil",
-    file: "reglamento_estudiantil.pdf",
-    chunks: 142,
-    uploadedAt: "2024-11-10",
-    status: "vectorizado",
-  },
-  {
-    id: "d-2",
-    name: "Reglamento de Pasantías",
-    file: "reglamento_pasantia.pdf",
-    chunks: 87,
-    uploadedAt: "2024-11-12",
-    status: "vectorizado",
-  },
-  {
-    id: "d-3",
-    name: "Pensum Ingeniería Informática",
-    file: "pensum_informatica.pdf",
-    chunks: 53,
-    uploadedAt: "2024-12-01",
-    status: "vectorizado",
-  },
-  {
-    id: "d-4",
-    name: "Calendario Académico 2025",
-    file: "calendario_2025.pdf",
-    chunks: 31,
-    uploadedAt: "2025-01-15",
-    status: "vectorizado",
-  },
-  {
-    id: "d-5",
-    name: "Normas de Trabajo de Grado",
-    file: "normas_teg.pdf",
-    chunks: 0,
-    uploadedAt: "2025-03-22",
-    status: "procesando",
-  },
-];
+const getCategorias = (sector: SectorType): Record<string, string[]> =>
+  CATEGORIAS_POR_SECTOR[sector] ?? CATEGORIAS_POR_SECTOR.otro;
+
+const DOC_TITLE_PLACEHOLDERS: Record<SectorType, string> = {
+  educacion: "Ej: Reglamento de Pasantías 2024, Pensum de Ingeniería...",
+  hospitalidad: "Ej: Políticas de Check-in, Tarifas de Habitaciones...",
+  corporativo: "Ej: Manual de Recursos Humanos, Políticas de Seguridad...",
+  ventas: "Ej: Catálogo de Productos 2024, Políticas de Devoluciones...",
+  salud: "Ej: Protocolo de Atención al Paciente, Procedimientos...",
+  manufactura: "Ej: Manual de Producción, Normas de Seguridad Industrial...",
+  otro: "Ej: Manual de Procedimientos, Información General...",
+};
 
 // ─── API HOOKS ────────────────────────────────────────────────────────────────
-// Para conectar al backend real: comenta la línea MOCK y descomenta la línea REAL
-
+const formatLabel = (raw: string): string =>
+  raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 function useStats(): { data: Stats | null; loading: boolean } {
   const [data, setData] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     api<Stats>("/admin/stats")
       .then(setData)
+      .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
-
   return { data, loading };
 }
 
@@ -184,66 +215,73 @@ function useUsers(): { data: User[]; loading: boolean } {
   const [data, setData] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api<User[]>("/admin/users")
-      .then(setData)
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    const fetchUsers = async () => {
+      try {
+        const res = await api<User[]>("/admin/users");
+        if (!cancelled) setData(res);
+      } catch {
+        if (!cancelled) setData([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchUsers();
+    return () => { cancelled = true; };
   }, []);
   return { data, loading };
 }
 
-function useDocs(): { data: Doc[]; loading: boolean; reload: () => void } {
-  const [data, setData] = useState<Doc[]>([]);
+// Hook para listar documentos del knowledge base con paginación real
+function useKBDocs(page: number, refreshSignal: number) {
+  const [data, setData] = useState<KBDoc[]>([]);
+  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [tick, setTick] = useState(0);
-  const reload = () => setTick((t) => t + 1);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    setLoading(true);
-    // REAL: api<Doc[]>("/admin/documents").then(setData).finally(() => setLoading(false));
-    // MOCK:
-    setTimeout(() => {
-      setData(MOCK_DOCS);
-      setLoading(false);
-    }, 400);
-  }, [tick]);
-  return { data, loading, reload };
+    let cancelled = false;
+    const fetchDocs = async () => {
+      setLoading(true);
+      setError("");
+      try {
+        const res = await api<PageResponse<KBDoc>>(
+          `/admin/docs?page=${page}&size=10`,
+        );
+        if (!cancelled) {
+          setData(res.content ?? []);
+          setTotalPages(res.totalPages ?? 0);
+          setTotalElements(res.totalElements ?? 0);
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : "Error al cargar documentos.",
+          );
+          setData([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    fetchDocs();
+    return () => {
+      cancelled = true;
+    };
+  }, [page, refreshSignal]);
+
+  return { data, totalPages, totalElements, loading, error };
 }
 
-// ─── CATEGORÍAS ───────────────────────────────────────────────────────────────
-// Ajusta estos valores para que coincidan con los que usa tu backend
-const CATEGORIAS: Record<string, string[]> = {
-  reglamento: ["general", "pasantias", "inscripcion", "disciplina", "grado"],
-  pensum: ["informatica", "civil", "industrial", "ambiental", "electronica"],
-  calendario: ["academico", "administrativo"],
-  informacion_general: ["historia", "mision_vision", "autoridades", "contacto"],
-  tramites: ["constancias", "retiro", "equivalencias", "cambio_carrera"],
-  horario: ["semestre 8"], //modificar según las subcategorías que maneje tu backend
-};
-
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const statusColor = (s: DocStatus): string =>
-  ({
-    vectorizado: "#22c55e",
-    procesando: "#f59e0b",
-    error: "#ef4444",
-    subiendo: "#60a5fa",
-  })[s] ?? "#60a5fa";
-
-const selectStyle: CSSProperties = {
-  width: "100%",
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid var(--border)",
-  background: "var(--bg)",
-  color: "var(--text)",
-  fontSize: 13,
-  boxSizing: "border-box",
-  marginBottom: 12,
-  outline: "none",
-  appearance: "none",
-  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-  backgroundRepeat: "no-repeat",
-  backgroundPosition: "right 12px center",
-};
+// const statusColor = (s: DocStatus): string =>
+//   ({
+//     vectorizado: "#22c55e",
+//     procesando: "#f59e0b",
+//     error: "#ef4444",
+//     subiendo: "#60a5fa",
+//   })[s] ?? "#60a5fa";
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 const Icon: FC<{ d: string; size?: number }> = ({ d, size = 18 }) => (
@@ -260,7 +298,6 @@ const Icon: FC<{ d: string; size?: number }> = ({ d, size = 18 }) => (
     <path d={d} />
   </svg>
 );
-
 const Icons: Record<string, string> = {
   users:
     "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
@@ -273,6 +310,12 @@ const Icons: Record<string, string> = {
   search: "M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z",
   bot: "M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM5 14v1a7 7 0 0 0 14 0v-1M8.5 17.5v1M15.5 17.5v1",
   check: "M20 6L9 17l-5-5",
+  refresh:
+    "M4 4v5h.582M20 20v-5h-.581M4.582 9A8 8 0 0 1 20 15M19.419 15A8 8 0 0 1 4 9",
+  chevLeft: "M15 18l-6-6 6-6",
+  chevRight: "M9 18l6-6-6-6",
+  brain:
+    "M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.07-4.73A3 3 0 0 1 4.5 9.5a3 3 0 0 1 .5-1.67 2.5 2.5 0 0 1 4.5-3.83M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.07-4.73A3 3 0 0 0 19.5 9.5a3 3 0 0 0-.5-1.67 2.5 2.5 0 0 0-4.5-3.83",
 };
 
 // ─── SPARKLINE ────────────────────────────────────────────────────────────────
@@ -375,15 +418,11 @@ const StatCard: FC<{
     {sparkData && <Sparkline data={sparkData} color={color} />}
   </div>
 );
+
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
-
-// Asegúrate de que tu interfaz incluya el rol (ajústalo a cómo lo envíe tu backend)
-interface AuthResponse {
-  token: string;
-  role: string; // o quizas data.user.role
-}
-
-const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
+const LoginPage: FC<{ onLogin: (data: AuthResponse) => void }> = ({
+  onLogin,
+}) => {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
@@ -393,28 +432,31 @@ const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
     setError("");
-
     try {
       const data = await api<AuthResponse>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password: pass }),
       });
-
-      // ─── VALIDACIÓN DE ROL AQUÍ ───
-      // Ajusta "ADMIN" al texto exacto que devuelva tu Spring Boot (ej: "ROLE_ADMIN")
-      if (data.user.role !== "ADMIN") {
+      if (data.user?.role !== "ADMIN") {
         setError("Acceso denegado: No tienes permisos de administrador.");
-        return; // Detenemos la ejecución, no guardamos token ni logueamos el usuario
+        return;
       }
-
-      // Si pasa la validación, lo dejamos entrar
-      localStorage.setItem("yoko_admin_token", data.token);
-      onLogin(data.token);
-    } catch (err) {
-      // Tu fallback de demostración
+      onLogin(data);
+    } catch {
       if (pass === "admin") {
         localStorage.setItem("yoko_admin_token", "demo-token");
-        onLogin("demo-token");
+        onLogin({
+          token: "demo-token",
+          user: {
+            id: "1",
+            name: "Admin",
+            email: "admin@uneg.edu.ve",
+            role: "ADMIN",
+            career: "",
+            currentSemester: 0,
+            sector: "educacion",
+          },
+        });
       } else {
         setError("Credenciales incorrectas o error de servidor.");
       }
@@ -582,146 +624,355 @@ const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
   );
 };
 
-// ─── UPLOAD PANEL ─────────────────────────────────────────────────────────────
-const UploadPanel: FC = () => {
-  const { data: remoteDocs, loading: docsLoading, reload } = useDocs();
+// ─── DOCUMENT TABLE (API real con paginación) ─────────────────────────────────
+interface DocumentTableProps {
+  refreshSignal: number;
+  theme: Record<string, string>;
+}
 
-  // Estado del formulario — espeja DataEntryRequest del backend
-  const [content, setContent] = useState("");
-  const [titulo, setTitulo] = useState("");
-  const [categoria, setCategoria] = useState("");
-  const [subcategoria, setSubcategoria] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
-  const [formError, setFormError] = useState("");
+const DocumentTable: FC<DocumentTableProps> = ({ refreshSignal }) => {
+  const [page, setPage] = useState(0);
+  const {
+    data: docs,
+    totalPages,
+    totalElements,
+    loading,
+    error,
+  } = useKBDocs(page, refreshSignal);
 
-  // Estado del file upload (stub para el feat de PDF)
-  const [files, setFiles] = useState<File[]>([]);
-  const [dragging, setDragging] = useState(false);
-  const [uploads, setUploads] = useState<UploadEntry[]>([]);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const subcats = categoria ? (CATEGORIAS[categoria] ?? []) : [];
-
-  const handleCategoria = (val: string) => {
-    setCategoria(val);
-    setSubcategoria("");
+  const tdStyle: CSSProperties = {
+    padding: "12px 14px",
+    fontSize: 13,
+    color: "var(--text)",
+    borderBottom: "1px solid var(--border)",
+  };
+  const thStyle: CSSProperties = {
+    padding: "10px 14px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    textTransform: "uppercase" as const,
+    letterSpacing: "0.06em",
+    textAlign: "left" as const,
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg)",
   };
 
-  // ── Envía texto al endpoint ───────────────────────────────────────────────
-  const submitText = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    if (!content.trim() || !titulo.trim() || !categoria) return;
-    setSubmitting(true);
-    setFormError("");
-    setSuccess(false);
+  return (
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        borderRadius: 16,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          padding: "18px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 8,
+              background: "var(--accent)18",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "var(--accent)",
+            }}
+          >
+            <Icon d={Icons.docs} size={15} />
+          </div>
+          <div>
+            <div
+              style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
+            >
+              Documentos indexados
+            </div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
+              {loading
+                ? "Cargando…"
+                : `${totalElements.toLocaleString()} documento${totalElements !== 1 ? "s" : ""} en el knowledge base`}
+            </div>
+          </div>
+        </div>
+      </div>
 
-    const body: DataEntryRequest = {
-      content,
-      titulo,
-      categoria,
-      subcategoria: subcategoria || "general",
-    };
-    console.log("Enviando al backend:", body);
+      {/* Error */}
+      {error && (
+        <div
+          style={{
+            margin: "16px 20px",
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "var(--danger)12",
+            border: "1px solid var(--danger)30",
+            color: "var(--danger)",
+            fontSize: 13,
+          }}
+        >
+          {error}
+        </div>
+      )}
+
+      {/* Table */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Título</th>
+              <th style={thStyle}>Categoría</th>
+              <th style={thStyle}>Subcategoría</th>
+              <th style={thStyle}>Fuente</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i}>
+                  {[70, 30, 30, 25].map((w, j) => (
+                    <td key={j} style={{ ...tdStyle }}>
+                      <div
+                        style={{
+                          height: 12,
+                          borderRadius: 4,
+                          background: "var(--border)",
+                          width: `${w}%`,
+                          animation: "pulse 1.5s infinite",
+                        }}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : docs.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={4}
+                  style={{ padding: "48px 24px", textAlign: "center" }}
+                >
+                  <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                    <Icon d={Icons.brain} size={32} />
+                    <div style={{ marginTop: 12, fontWeight: 500 }}>
+                      No hay documentos todavía
+                    </div>
+                    <div style={{ marginTop: 4, fontSize: 12 }}>
+                      Usa el formulario de arriba para subir tu primer documento
+                      al knowledge base.
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              docs.map((doc) => {
+                const catColor = CATEGORY_COLORS[doc.categoria] || {
+                  bg: "var(--border)",
+                  text: "var(--muted)",
+                };
+                return (
+                  <tr
+                    key={doc.id}
+                    style={{ transition: "background 0.1s" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
+                  >
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 500 }}>
+                        {doc.titulo || "Sin título"}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: 10,
+                          color: "var(--muted)",
+                          fontFamily: "'DM Mono', monospace",
+                          marginTop: 2,
+                        }}
+                      >
+                        {doc.id?.slice(0, 8)}…
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          background: catColor.bg,
+                          color: catColor.text,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {formatLabel(doc.categoria) || "—"}
+                      </span>
+                    </td>
+                    <td style={{ ...tdStyle, color: "var(--muted)" }}>
+                      {doc.subcategoria ? formatLabel(doc.subcategoria) : "—"}
+                    </td>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        color: "var(--muted)",
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 11,
+                      }}
+                    >
+                      {doc.fuente || "—"}
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div
+          style={{
+            padding: "14px 20px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>
+            Página <strong style={{ color: "var(--text)" }}>{page + 1}</strong>{" "}
+            de <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[
+              {
+                label: "Anterior",
+                icon: Icons.chevLeft,
+                action: () => setPage((p) => Math.max(0, p - 1)),
+                disabled: page === 0,
+              },
+              {
+                label: "Siguiente",
+                icon: Icons.chevRight,
+                action: () => setPage((p) => Math.min(totalPages - 1, p + 1)),
+                disabled: page >= totalPages - 1,
+              },
+            ].map(({ label, icon, action, disabled }) => (
+              <button
+                key={label}
+                onClick={action}
+                disabled={disabled || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: disabled ? "var(--muted)" : "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: disabled ? "not-allowed" : "pointer",
+                  opacity: disabled ? 0.45 : 1,
+                  transition: "all 0.15s",
+                }}
+              >
+                {label === "Anterior" && <Icon d={icon} size={13} />}
+                {label}
+                {label === "Siguiente" && <Icon d={icon} size={13} />}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── DATA ENTRY FORM (API real) ───────────────────────────────────────────────
+interface DataEntryFormProps {
+  onSuccess: () => void;
+  theme: Record<string, string>;
+  sector: SectorType;
+}
+
+const DataEntryForm: FC<DataEntryFormProps> = ({ onSuccess, sector }) => {
+  const [form, setForm] = useState<DataEntryRequest>({
+    titulo: "",
+    categoria: "",
+    subcategoria: "",
+    content: "",
+  });
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [charCount, setCharCount] = useState(0);
+
+  const categorias = getCategorias(sector);
+  const subcats = form.categoria ? (categorias[form.categoria] ?? []) : [];
+
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+    if (name === "content") setCharCount(value.length);
+    if (name === "categoria")
+      setForm((prev) => ({ ...prev, categoria: value, subcategoria: "" }));
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!form.titulo || !form.categoria || !form.content.trim()) {
+      setErrorMsg("Título, categoría y contenido son obligatorios.");
+      setStatus("error");
+      return;
+    }
+    setStatus("loading");
+    setErrorMsg("");
     try {
       await api("/admin/load-data", {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          ...form,
+          subcategoria: form.subcategoria || "general",
+        }),
       });
-      setSuccess(true);
-      setContent("");
-      setTitulo("");
-      setCategoria("");
-      setSubcategoria("");
-      reload();
-      setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Error al vectorizar.");
-    } finally {
-      setSubmitting(false);
+      setStatus("success");
+      setForm({ titulo: "", categoria: "", subcategoria: "", content: "" });
+      setCharCount(0);
+      onSuccess();
+      setTimeout(() => setStatus("idle"), 3500);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : "Error al vectorizar el documento.";
+      setErrorMsg(msg);
+      setStatus("error");
     }
   };
 
-  // ── File upload (para cuando implementes chunking de PDF) ─────────────────
-  const addFiles = (newFiles: FileList | null): void => {
-    if (!newFiles) return;
-    const allowed = [
-      "application/pdf",
-      "text/plain",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-    setFiles((prev) => [
-      ...prev,
-      ...Array.from(newFiles).filter((f) => allowed.includes(f.type)),
-    ]);
-  };
+  const isLoading = status === "loading";
+  const canSubmit =
+    !isLoading &&
+    form.titulo !== "" &&
+    form.categoria !== "" &&
+    form.content.trim() !== "";
 
-  const submitFile = async (): Promise<void> => {
-    if (!files.length || !titulo || !categoria) return;
-    const entry: UploadEntry = {
-      id: Date.now(),
-      name: titulo,
-      file: files[0].name,
-      status: "subiendo",
-      progress: 0,
-    };
-    setUploads((prev) => [entry, ...prev]);
-    setFiles([]);
-
-    for (let p = 0; p <= 90; p += 15) {
-      await new Promise<void>((r) => setTimeout(r, 180));
-      setUploads((prev) =>
-        prev.map((u) => (u.id === entry.id ? { ...u, progress: p } : u)),
-      );
-    }
-    try {
-      const form = new FormData();
-      form.append("file", files[0]);
-      form.append("titulo", titulo);
-      form.append("categoria", categoria);
-      form.append("subcategoria", subcategoria || "general");
-      await fetch(`${API_BASE}/admin/data-entry/file`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("yoko_admin_token") ?? ""}`,
-        },
-        body: form,
-      });
-      setUploads((prev) =>
-        prev.map((u) =>
-          u.id === entry.id
-            ? { ...u, status: "vectorizado", progress: 100 }
-            : u,
-        ),
-      );
-      reload();
-    } catch {
-      setUploads((prev) =>
-        prev.map((u) =>
-          u.id === entry.id ? { ...u, status: "error", progress: 100 } : u,
-        ),
-      );
-    }
-  };
-
-  const allDocs: Doc[] = [
-    ...remoteDocs,
-    ...uploads.map((u) => ({
-      id: u.id,
-      name: u.name,
-      file: u.file,
-      chunks: "—" as const,
-      uploadedAt: "hoy",
-      status: u.status,
-    })),
-  ];
-
-  const lbl: CSSProperties = {
-    fontSize: 12,
-    color: "var(--muted)",
-    display: "block",
-    marginBottom: 5,
-  };
   const inp: CSSProperties = {
     width: "100%",
     padding: "10px 14px",
@@ -731,400 +982,283 @@ const UploadPanel: FC = () => {
     color: "var(--text)",
     fontSize: 13,
     boxSizing: "border-box",
-    marginBottom: 12,
     outline: "none",
+    marginBottom: 12,
+    transition: "border-color 0.2s",
   };
-  const canSubmit =
-    !submitting && content.trim() !== "" && titulo !== "" && categoria !== "";
+  const selectStyle: CSSProperties = {
+    ...inp,
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
+  };
+  const lbl: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    display: "block",
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  };
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-      {/* ── Formulario ────────────────────────────────────────────────────── */}
+    <div
+      style={{
+        background: "var(--card)",
+        border: "1px solid var(--border)",
+        borderRadius: 16,
+        overflow: "hidden",
+      }}
+    >
+      {/* Header */}
       <div
         style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          padding: 24,
+          padding: "18px 20px",
+          borderBottom: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          gap: 10,
         }}
       >
-        <h3
-          style={{
-            margin: "0 0 20px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "var(--text)",
-          }}
-        >
-          Cargar conocimiento
-        </h3>
-
-        <form
-          onSubmit={submitText}
-          style={{ display: "flex", flexDirection: "column" }}
-        >
-          <label style={lbl}>Título institucional</label>
-          <input
-            value={titulo}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setTitulo(e.target.value)
-            }
-            placeholder="ej: Reglamento Estudiantil"
-            required
-            style={inp}
-          />
-
-          <label style={lbl}>Categoría</label>
-          <select
-            value={categoria}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              handleCategoria(e.target.value)
-            }
-            required
-            style={selectStyle}
-          >
-            <option value="">Selecciona una categoría</option>
-            {Object.keys(CATEGORIAS).map((c) => (
-              <option key={c} value={c}>
-                {c.replace(/_/g, " ")}
-              </option>
-            ))}
-          </select>
-
-          {subcats.length > 0 && (
-            <>
-              <label style={lbl}>
-                Subcategoría{" "}
-                <span style={{ color: "var(--muted)", fontWeight: 400 }}>
-                  (opcional)
-                </span>
-              </label>
-              <select
-                value={subcategoria}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                  setSubcategoria(e.target.value)
-                }
-                style={selectStyle}
-              >
-                <option value="">General</option>
-                {subcats.map((s) => (
-                  <option key={s} value={s}>
-                    {s.replace(/_/g, " ")}
-                  </option>
-                ))}
-              </select>
-            </>
-          )}
-
-          <label style={lbl}>Contenido a vectorizar</label>
-          <textarea
-            value={content}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
-              setContent(e.target.value)
-            }
-            placeholder="Pega aquí el texto del documento..."
-            required
-            rows={9}
-            style={{
-              ...inp,
-              resize: "vertical",
-              fontFamily: "inherit",
-              lineHeight: 1.6,
-            }}
-          />
-
-          {formError && (
-            <div
-              style={{
-                fontSize: 13,
-                color: "var(--danger)",
-                background: "var(--danger)18",
-                borderRadius: 8,
-                padding: "8px 12px",
-                marginBottom: 12,
-              }}
-            >
-              {formError}
-            </div>
-          )}
-          {success && (
-            <div
-              style={{
-                fontSize: 13,
-                color: "#22c55e",
-                background: "#22c55e18",
-                borderRadius: 8,
-                padding: "8px 12px",
-                marginBottom: 12,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-              }}
-            >
-              <Icon d={Icons.check} size={14} /> Documento vectorizado
-              correctamente
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            style={{
-              padding: "11px",
-              borderRadius: 10,
-              border: "none",
-              background: canSubmit ? "var(--accent)" : "var(--border)",
-              color: canSubmit ? "#fff" : "var(--muted)",
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: canSubmit ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-            }}
-          >
-            <Icon d={Icons.upload} size={16} />
-            {submitting ? "Vectorizando..." : "Vectorizar y guardar"}
-          </button>
-        </form>
-
-        {/* ── File upload stub ──────────────────────────────────────────── */}
         <div
           style={{
-            marginTop: 24,
-            paddingTop: 20,
-            borderTop: "1px solid var(--border)",
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            background: "var(--accent)18",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "var(--accent)",
           }}
         >
-          <div
-            style={{
-              fontSize: 12,
-              color: "var(--muted)",
-              marginBottom: 10,
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
-            <span>Subir archivo (PDF / chunking)</span>
-            <span
-              style={{
-                background: "var(--border)",
-                padding: "2px 8px",
-                borderRadius: 20,
-                fontSize: 11,
-              }}
-            >
-              próximamente
-            </span>
+          <Icon d={Icons.brain} size={15} />
+        </div>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
+            Inyectar Conocimiento
           </div>
-          <div
-            onDragOver={(e: DragEvent<HTMLDivElement>) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={() => setDragging(false)}
-            onDrop={(e: DragEvent<HTMLDivElement>) => {
-              e.preventDefault();
-              setDragging(false);
-              addFiles(e.dataTransfer.files);
-            }}
-            onClick={() => fileRef.current?.click()}
-            style={{
-              border: `2px dashed ${dragging ? "var(--accent)" : "var(--border)"}`,
-              borderRadius: 12,
-              padding: "20px",
-              textAlign: "center",
-              cursor: "pointer",
-              background: dragging ? "var(--accent)08" : "var(--bg)",
-              transition: "all 0.2s",
-            }}
-          >
-            <Icon d={Icons.upload} size={22} />
-            <div style={{ marginTop: 8, fontSize: 13, color: "var(--text)" }}>
-              {files.length
-                ? `${files.length} archivo(s) seleccionado(s)`
-                : "Arrastra o haz clic"}
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 3 }}>
-              PDF, TXT, DOCX
-            </div>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept=".pdf,.txt,.docx"
-              style={{ display: "none" }}
-              onChange={(e: ChangeEvent<HTMLInputElement>) =>
-                addFiles(e.target.files)
-              }
-            />
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
+            El contenido será vectorizado y disponible para Yoko inmediatamente
           </div>
-
-          {files.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              {files.map((f, i) => (
-                <div
-                  key={i}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: "7px 10px",
-                    background: "var(--bg)",
-                    borderRadius: 8,
-                    marginBottom: 5,
-                  }}
-                >
-                  <span style={{ fontSize: 12, color: "var(--text)" }}>
-                    {f.name}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setFiles((prev) => prev.filter((_, j) => j !== i))
-                    }
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      color: "var(--muted)",
-                      padding: 2,
-                    }}
-                  >
-                    <Icon d={Icons.x} size={13} />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={submitFile}
-                disabled={!titulo || !categoria}
-                style={{
-                  marginTop: 8,
-                  width: "100%",
-                  padding: "9px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: titulo && categoria ? "#0ea5e9" : "var(--border)",
-                  color: titulo && categoria ? "#fff" : "var(--muted)",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  cursor: titulo && categoria ? "pointer" : "not-allowed",
-                }}
-              >
-                Subir archivo
-              </button>
-            </div>
-          )}
-
-          {uploads.map((u) => (
-            <div key={u.id} style={{ marginTop: 10 }}>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  fontSize: 12,
-                  marginBottom: 4,
-                }}
-              >
-                <span style={{ color: "var(--text)" }}>{u.name}</span>
-                <span style={{ color: statusColor(u.status) }}>{u.status}</span>
-              </div>
-              <div
-                style={{
-                  height: 4,
-                  background: "var(--border)",
-                  borderRadius: 4,
-                  overflow: "hidden",
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    borderRadius: 4,
-                    background: statusColor(u.status),
-                    width: `${u.progress}%`,
-                    transition: "width 0.3s",
-                  }}
-                />
-              </div>
-            </div>
-          ))}
         </div>
       </div>
 
-      {/* ── Lista de documentos ────────────────────────────────────────────── */}
-      <div
-        style={{
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderRadius: 16,
-          padding: 24,
-        }}
+      <form
+        onSubmit={handleSubmit}
+        style={{ padding: 20, display: "flex", flexDirection: "column" }}
       >
-        <h3
+        <label style={lbl}>
+          Título del documento <span style={{ color: "var(--danger)" }}>*</span>
+        </label>
+        <input
+          name="titulo"
+          value={form.titulo}
+          onChange={handleChange}
+          placeholder={DOC_TITLE_PLACEHOLDERS[sector]}
+          disabled={isLoading}
+          style={inp}
+        />
+
+        <div
+          style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+        >
+          <div>
+            <label style={lbl}>
+              Categoría <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <select
+              name="categoria"
+              value={form.categoria}
+              onChange={handleChange}
+              disabled={isLoading}
+              style={selectStyle}
+            >
+              <option value="">Seleccionar…</option>
+              {Object.keys(categorias).map((c) => (
+                <option key={c} value={c}>
+                  {formatLabel(c)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label style={lbl}>
+              Subcategoría{" "}
+              <span style={{ color: "var(--muted)", fontWeight: 400 }}>
+                (opcional)
+              </span>
+            </label>
+            <select
+              name="subcategoria"
+              value={form.subcategoria}
+              onChange={handleChange}
+              disabled={isLoading || subcats.length === 0}
+              style={{
+                ...selectStyle,
+                opacity: subcats.length === 0 ? 0.5 : 1,
+              }}
+            >
+              <option value="">General</option>
+              {subcats.map((s) => (
+                <option key={s} value={s}>
+                  {formatLabel(s)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div
           style={{
-            margin: "0 0 20px",
-            fontSize: 16,
-            fontWeight: 600,
-            color: "var(--text)",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 5,
           }}
         >
-          Documentos cargados
-        </h3>
-        {docsLoading ? (
-          <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando...</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {allDocs.map((doc) => (
-              <div
-                key={doc.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  padding: "10px 12px",
-                  background: "var(--bg)",
-                  borderRadius: 10,
-                }}
-              >
-                <div style={{ color: "var(--accent)", flexShrink: 0 }}>
-                  <Icon d={Icons.docs} size={16} />
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "var(--text)",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                    }}
-                  >
-                    {doc.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                    {doc.chunks} chunks · {doc.uploadedAt}
-                  </div>
-                </div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    padding: "2px 8px",
-                    borderRadius: 20,
-                    background: `${statusColor(doc.status)}20`,
-                    color: statusColor(doc.status),
-                    flexShrink: 0,
-                  }}
-                >
-                  {doc.status}
-                </span>
-              </div>
-            ))}
+          <label style={{ ...lbl, marginBottom: 0 }}>
+            Contenido a vectorizar{" "}
+            <span style={{ color: "var(--danger)" }}>*</span>
+          </label>
+          <span
+            style={{
+              fontSize: 11,
+              color: charCount > 50000 ? "var(--danger)" : "var(--muted)",
+              fontFamily: "'DM Mono', monospace",
+            }}
+          >
+            {charCount.toLocaleString()} chars
+          </span>
+        </div>
+        <textarea
+          name="content"
+          value={form.content}
+          onChange={handleChange}
+          disabled={isLoading}
+          placeholder="Pega aquí el texto del documento. Será fragmentado automáticamente en chunks para el vector store…"
+          rows={10}
+          style={{
+            ...inp,
+            resize: "vertical",
+            fontFamily: "inherit",
+            lineHeight: 1.6,
+            marginBottom: 16,
+          }}
+        />
+
+        {status === "success" && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "#22c55e14",
+              border: "1px solid #22c55e30",
+              color: "#22c55e",
+              fontSize: 13,
+              marginBottom: 14,
+            }}
+          >
+            <Icon d={Icons.check} size={14} /> Documento vectorizado
+            exitosamente. Yoko ya puede responder sobre él.
           </div>
         )}
-      </div>
+        {status === "error" && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "var(--danger)12",
+              border: "1px solid var(--danger)30",
+              color: "var(--danger)",
+              fontSize: 13,
+              marginBottom: 14,
+            }}
+          >
+            {errorMsg}
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={!canSubmit}
+          style={{
+            padding: "11px",
+            borderRadius: 10,
+            border: "none",
+            background: canSubmit ? "var(--accent)" : "var(--border)",
+            color: canSubmit ? "#fff" : "var(--muted)",
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            transition: "all 0.2s",
+          }}
+        >
+          {isLoading ? (
+            <>
+              <svg
+                style={{
+                  width: 16,
+                  height: 16,
+                  animation: "spin 1s linear infinite",
+                }}
+                viewBox="0 0 24 24"
+                fill="none"
+              >
+                <circle
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  opacity="0.25"
+                />
+                <path
+                  d="M4 12a8 8 0 018-8"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                />
+              </svg>{" "}
+              Vectorizando…
+            </>
+          ) : (
+            <>
+              <Icon d={Icons.upload} size={16} /> Subir al Knowledge Base
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+// ─── UPLOAD PANEL (tab "docs") — integra Form + Table ────────────────────────
+interface UploadPanelProps {
+  theme: Record<string, string>;
+  sector: SectorType;
+}
+
+const UploadPanel: FC<UploadPanelProps> = ({ theme, sector }) => {
+  const [refreshSignal, setRefreshSignal] = useState(0);
+
+  const handleSuccess = useCallback(() => {
+    setRefreshSignal((s) => s + 1);
+  }, []);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <DataEntryForm onSuccess={handleSuccess} theme={theme} sector={sector} />
+      <DocumentTable refreshSignal={refreshSignal} theme={theme} />
     </div>
   );
 };
@@ -1133,7 +1267,6 @@ const UploadPanel: FC = () => {
 const UsersTable: FC = () => {
   const { data: users, loading } = useUsers();
   const [search, setSearch] = useState("");
-
   const filtered = users.filter(
     (u) =>
       u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -1198,7 +1331,6 @@ const UsersTable: FC = () => {
           />
         </div>
       </div>
-
       {loading ? (
         <div style={{ color: "var(--muted)", fontSize: 13 }}>
           Cargando usuarios...
@@ -1291,7 +1423,7 @@ const UsersTable: FC = () => {
                       fontFamily: "'DM Mono', monospace",
                     }}
                   >
-                    {u.sessions}
+                    {u.sessionCount}
                   </td>
                   <td
                     style={{
@@ -1300,10 +1432,16 @@ const UsersTable: FC = () => {
                       fontFamily: "'DM Mono', monospace",
                     }}
                   >
-                    {u.messages}
+                    {u.messageCount}
                   </td>
                   <td style={{ padding: "12px", color: "var(--muted)" }}>
-                    {u.lastActive}
+                    {u.lastActive
+                      ? new Date(u.lastActive).toLocaleDateString("es-ES", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—"}
                   </td>
                   <td style={{ padding: "12px" }}>
                     <span
@@ -1335,14 +1473,12 @@ const UsersTable: FC = () => {
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 const Overview: FC = () => {
   const { data: stats, loading } = useStats();
-
   if (loading || !stats)
     return (
       <div style={{ color: "var(--muted)", fontSize: 13 }}>
         Cargando estadísticas...
       </div>
     );
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <div
@@ -1378,7 +1514,6 @@ const Overview: FC = () => {
           color="#06b6d4"
         />
       </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <div
           style={{
@@ -1447,7 +1582,6 @@ const Overview: FC = () => {
             </div>
           ))}
         </div>
-
         <div
           style={{
             background: "var(--card)",
@@ -1523,13 +1657,47 @@ export default function YokoAdmin(): JSX.Element {
   );
   const [tab, setTab] = useState<TabId>("overview");
   const [dark, setDark] = useState<boolean>(true);
+  const [sessionKey, setSessionKey] = useState(0);
+  const [sector, setSector] = useState<SectorType>(() => {
+    const stored = localStorage.getItem("yoko_sector");
+    return (stored as SectorType) || "educacion";
+  });
+  const [userName, setUserName] = useState<string>(
+    () => localStorage.getItem("yoko_user_name") || "",
+  );
+  const [orgName, setOrgName] = useState<string>(
+    () => localStorage.getItem("yoko_org_name") || "",
+  );
 
   const logout = (): void => {
     localStorage.removeItem("yoko_admin_token");
+    localStorage.removeItem("yoko_sector");
+    localStorage.removeItem("yoko_user_name");
+    localStorage.removeItem("yoko_org_name");
+    localStorage.removeItem("yoko_token");
     setToken(null);
+    setUserName("");
+    setOrgName("");
+    setSessionKey(0);
   };
 
-  const theme: Theme = {
+  const handleLogin = (data: AuthResponse): void => {
+    localStorage.setItem("yoko_admin_token", data.token);
+    const rawSector = data.user?.organizationSector ?? data.user?.sector;
+    const normalizedSector = rawSector
+      ? (rawSector.toLowerCase() as SectorType)
+      : "educacion";
+    localStorage.setItem("yoko_sector", normalizedSector);
+    localStorage.setItem("yoko_user_name", data.user?.name ?? "");
+    localStorage.setItem("yoko_org_name", data.user?.organizationName ?? "");
+    setSector(normalizedSector);
+    setUserName(data.user?.name ?? "");
+    setOrgName(data.user?.organizationName ?? "");
+    setSessionKey((k) => k + 1);
+    setToken(data.token);
+  };
+
+  const theme: Record<string, string> = {
     "--bg": dark ? "#0f1117" : "#f8f9fa",
     "--card": dark ? "#161b27" : "#ffffff",
     "--border": dark ? "#1e2736" : "#e5e7eb",
@@ -1543,7 +1711,7 @@ export default function YokoAdmin(): JSX.Element {
     return (
       <div style={theme as CSSProperties}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap'); *{font-family:'DM Sans',sans-serif;} body{margin:0;background:${theme["--bg"]};}`}</style>
-        <LoginPage onLogin={setToken} />
+        <LoginPage onLogin={handleLogin} />
       </div>
     );
 
@@ -1556,12 +1724,12 @@ export default function YokoAdmin(): JSX.Element {
   const pageTitle: Record<TabId, string> = {
     overview: "Resumen general",
     users: "Usuarios",
-    docs: "Documentos",
+    docs: "Knowledge Base",
   };
   const pageSubtitle: Record<TabId, string> = {
     overview: "Estado general del sistema Yoko",
-    users: "Estudiantes registrados en la plataforma",
-    docs: "Gestión de conocimiento vectorizado",
+    users: "Usuarios de tu organización",
+    docs: "Inyecta y gestiona el conocimiento del RAG",
   };
 
   return (
@@ -1578,6 +1746,8 @@ export default function YokoAdmin(): JSX.Element {
         ::-webkit-scrollbar{width:6px;} ::-webkit-scrollbar-track{background:transparent;}
         ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
         select option{background:#161b27;color:#e8eaf0;}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
       `}</style>
 
       {/* Sidebar */}
@@ -1621,10 +1791,10 @@ export default function YokoAdmin(): JSX.Element {
               <div
                 style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}
               >
-                Yoko
+                {orgName || "Yoko"}
               </div>
               <div style={{ fontSize: 11, color: "var(--muted)" }}>
-                Admin Panel
+                {userName} · {sector.toUpperCase()}
               </div>
             </div>
           </div>
@@ -1733,7 +1903,7 @@ export default function YokoAdmin(): JSX.Element {
         </div>
         {tab === "overview" && <Overview />}
         {tab === "users" && <UsersTable />}
-        {tab === "docs" && <UploadPanel />}
+        {tab === "docs" && <UploadPanel theme={theme} sector={sector} />}
       </div>
     </div>
   );
