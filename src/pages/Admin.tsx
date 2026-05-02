@@ -19,7 +19,7 @@ const api = async <T = unknown,>(
   const token =
     localStorage.getItem("yoko_admin_token") ||
     localStorage.getItem("yoko_token");
-    
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
@@ -93,6 +93,9 @@ interface KBDoc {
   categoria: string;
   subcategoria?: string | null;
   fuente?: string | null;
+}
+interface KBDocDetail extends KBDoc {
+  content: string;
 }
 interface PageResponse<T> {
   content: T[];
@@ -227,7 +230,9 @@ function useUsers(): { data: User[]; loading: boolean } {
       }
     };
     fetchUsers();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return { data, loading };
 }
@@ -312,6 +317,8 @@ const Icons: Record<string, string> = {
   check: "M20 6L9 17l-5-5",
   refresh:
     "M4 4v5h.582M20 20v-5h-.581M4.582 9A8 8 0 0 1 20 15M19.419 15A8 8 0 0 1 4 9",
+  trash: "M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6",
+  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
   chevLeft: "M15 18l-6-6 6-6",
   chevRight: "M9 18l6-6-6-6",
   brain:
@@ -624,13 +631,497 @@ const LoginPage: FC<{ onLogin: (data: AuthResponse) => void }> = ({
   );
 };
 
+interface EditDocModalProps {
+  doc: KBDoc;
+  sector: SectorType;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const EditDocModal: FC<EditDocModalProps> = ({
+  doc,
+  sector,
+  onClose,
+  onSuccess,
+}) => {
+  const [form, setForm] = useState<DataEntryRequest>({
+    titulo: doc.titulo || "",
+    categoria: doc.categoria || "",
+    subcategoria: doc.subcategoria || "",
+    content: "",
+  });
+  const [loadingDetail, setLoadingDetail] = useState(true);
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [charCount, setCharCount] = useState(0);
+
+  // Cargar el contenido completo del documento
+  useEffect(() => {
+    api<KBDocDetail>(`/admin/docs/${doc.id}`)
+      .then((detail) => {
+        setForm((prev) => ({ ...prev, content: detail.content || "" }));
+        setCharCount((detail.content || "").length);
+      })
+      .catch(() => setErrorMsg("No se pudo cargar el contenido del documento."))
+      .finally(() => setLoadingDetail(false));
+  }, [doc.id]);
+
+  const categorias = getCategorias(sector);
+  const subcats = form.categoria ? (categorias[form.categoria] ?? []) : [];
+
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target;
+    if (name === "categoria") {
+      setForm((prev) => ({ ...prev, categoria: value, subcategoria: "" }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: value }));
+    }
+    if (name === "content") setCharCount(value.length);
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!form.titulo || !form.categoria || !form.content.trim()) {
+      setErrorMsg("Título, categoría y contenido son obligatorios.");
+      setStatus("error");
+      return;
+    }
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      await api(`/admin/docs/${doc.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...form,
+          subcategoria: form.subcategoria || "general",
+        }),
+      });
+      setStatus("success");
+      onSuccess();
+      setTimeout(() => onClose(), 1500);
+    } catch (err: unknown) {
+      setErrorMsg(
+        err instanceof Error
+          ? err.message
+          : "Error al actualizar el documento.",
+      );
+      setStatus("error");
+    }
+  };
+
+  const isLoading = status === "loading" || loadingDetail;
+  const canSubmit =
+    !isLoading &&
+    form.titulo !== "" &&
+    form.categoria !== "" &&
+    form.content.trim() !== "";
+
+  const inp: CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg)",
+    color: "var(--text)",
+    fontSize: 13,
+    boxSizing: "border-box",
+    outline: "none",
+    marginBottom: 12,
+    transition: "border-color 0.2s",
+  };
+  const selectStyle: CSSProperties = {
+    ...inp,
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
+  };
+  const lbl: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    display: "block",
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  };
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "#00000075",
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+      }}
+      onClick={() => !isLoading && onClose()}
+    >
+      {/* Drawer desde la derecha */}
+      <div
+        style={{
+          width: 520,
+          height: "100%",
+          background: "var(--card)",
+          borderLeft: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header del drawer */}
+        <div
+          style={{
+            padding: "22px 24px",
+            borderBottom: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: "var(--accent)18",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <Icon d={Icons.edit} size={16} />
+            </div>
+            <div>
+              <div
+                style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}
+              >
+                Editar documento
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  color: "var(--muted)",
+                  fontFamily: "'DM Mono', monospace",
+                  marginTop: 2,
+                }}
+              >
+                {doc.id?.slice(0, 8)}…
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            disabled={isLoading}
+            style={{
+              width: 30,
+              height: 30,
+              borderRadius: 7,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--muted)",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Icon d={Icons.x} size={14} />
+          </button>
+        </div>
+
+        {/* Aviso de re-vectorización */}
+        <div
+          style={{
+            margin: "16px 24px 0",
+            padding: "10px 14px",
+            borderRadius: 10,
+            background: "#f59e0b12",
+            border: "1px solid #f59e0b30",
+            color: "#f59e0b",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Icon d={Icons.refresh} size={13} />
+          Guardar re-vectorizará el documento. Los chunks anteriores serán
+          reemplazados.
+        </div>
+
+        {/* Skeleton mientras carga el detalle */}
+        {loadingDetail ? (
+          <div
+            style={{
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            {[100, 60, 60, 200].map((h, i) => (
+              <div
+                key={i}
+                style={{
+                  height: h,
+                  borderRadius: 10,
+                  background: "var(--border)",
+                  animation: "pulse 1.5s infinite",
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <form
+            onSubmit={handleSubmit}
+            style={{
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              flex: 1,
+            }}
+          >
+            <label style={lbl}>
+              Título <span style={{ color: "var(--danger)" }}>*</span>
+            </label>
+            <input
+              name="titulo"
+              value={form.titulo}
+              onChange={handleChange}
+              disabled={status === "loading"}
+              placeholder={DOC_TITLE_PLACEHOLDERS[sector]}
+              style={inp}
+            />
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 12,
+              }}
+            >
+              <div>
+                <label style={lbl}>
+                  Categoría <span style={{ color: "var(--danger)" }}>*</span>
+                </label>
+                <select
+                  name="categoria"
+                  value={form.categoria}
+                  onChange={handleChange}
+                  disabled={status === "loading"}
+                  style={selectStyle}
+                >
+                  <option value="">Seleccionar…</option>
+                  {Object.keys(categorias).map((c) => (
+                    <option key={c} value={c}>
+                      {formatLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label style={lbl}>
+                  Subcategoría{" "}
+                  <span style={{ color: "var(--muted)", fontWeight: 400 }}>
+                    (opcional)
+                  </span>
+                </label>
+                <select
+                  name="subcategoria"
+                  value={form.subcategoria}
+                  onChange={handleChange}
+                  disabled={status === "loading" || subcats.length === 0}
+                  style={{
+                    ...selectStyle,
+                    opacity: subcats.length === 0 ? 0.5 : 1,
+                  }}
+                >
+                  <option value="">General</option>
+                  {subcats.map((s) => (
+                    <option key={s} value={s}>
+                      {formatLabel(s)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 5,
+              }}
+            >
+              <label style={{ ...lbl, marginBottom: 0 }}>
+                Contenido <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: charCount > 50000 ? "var(--danger)" : "var(--muted)",
+                  fontFamily: "'DM Mono', monospace",
+                }}
+              >
+                {charCount.toLocaleString()} chars
+              </span>
+            </div>
+            <textarea
+              name="content"
+              value={form.content}
+              onChange={handleChange}
+              disabled={status === "loading"}
+              rows={14}
+              style={{
+                ...inp,
+                resize: "vertical",
+                fontFamily: "inherit",
+                lineHeight: 1.6,
+                marginBottom: 16,
+                flex: 1,
+              }}
+            />
+
+            {status === "success" && (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#22c55e14",
+                  border: "1px solid #22c55e30",
+                  color: "#22c55e",
+                  fontSize: 13,
+                  marginBottom: 14,
+                }}
+              >
+                <Icon d={Icons.check} size={14} /> Documento actualizado y
+                re-vectorizado.
+              </div>
+            )}
+            {status === "error" && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--danger)12",
+                  border: "1px solid var(--danger)30",
+                  color: "var(--danger)",
+                  fontSize: 13,
+                  marginBottom: 14,
+                }}
+              >
+                {errorMsg}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={status === "loading"}
+                style={{
+                  flex: 1,
+                  padding: "11px",
+                  borderRadius: 10,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: "var(--muted)",
+                  fontSize: 14,
+                  fontWeight: 500,
+                  cursor: status === "loading" ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                style={{
+                  flex: 2,
+                  padding: "11px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: canSubmit ? "var(--accent)" : "var(--border)",
+                  color: canSubmit ? "#fff" : "var(--muted)",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: canSubmit ? "pointer" : "not-allowed",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "all 0.2s",
+                }}
+              >
+                {status === "loading" ? (
+                  <>
+                    <svg
+                      style={{
+                        width: 15,
+                        height: 15,
+                        animation: "spin 1s linear infinite",
+                      }}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        opacity="0.25"
+                      />
+                      <path
+                        d="M4 12a8 8 0 018-8"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Vectorizando…
+                  </>
+                ) : (
+                  <>
+                    <Icon d={Icons.edit} size={15} /> Guardar cambios
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
 // ─── DOCUMENT TABLE (API real con paginación) ─────────────────────────────────
 interface DocumentTableProps {
   refreshSignal: number;
   theme: Record<string, string>;
+  onRefresh: () => void;
+  sector: SectorType;
 }
 
-const DocumentTable: FC<DocumentTableProps> = ({ refreshSignal }) => {
+const DocumentTable: FC<DocumentTableProps> = ({
+  refreshSignal,
+  onRefresh,
+  sector,
+}) => {
   const [page, setPage] = useState(0);
   const {
     data: docs,
@@ -639,6 +1130,31 @@ const DocumentTable: FC<DocumentTableProps> = ({ refreshSignal }) => {
     loading,
     error,
   } = useKBDocs(page, refreshSignal);
+
+  const [deleteTarget, setDeleteTarget] = useState<KBDoc | null>(null);
+  const [editTarget, setEditTarget] = useState<KBDoc | null>(null);
+
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      await api(`/admin/docs/${deleteTarget.id}`, { method: "DELETE" });
+      setDeleteTarget(null);
+      onRefresh();
+      // Si era el único doc de la página, retrocede
+      if (docs.length === 1 && page > 0) setPage((p) => p - 1);
+    } catch (err: unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : "Error al eliminar el documento.",
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const tdStyle: CSSProperties = {
     padding: "12px 14px",
@@ -659,245 +1175,502 @@ const DocumentTable: FC<DocumentTableProps> = ({ refreshSignal }) => {
   };
 
   return (
-    <div
-      style={{
-        background: "var(--card)",
-        border: "1px solid var(--border)",
-        borderRadius: 16,
-        overflow: "hidden",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: "18px 20px",
-          borderBottom: "1px solid var(--border)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: "var(--accent)18",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "var(--accent)",
-            }}
-          >
-            <Icon d={Icons.docs} size={15} />
-          </div>
-          <div>
-            <div
-              style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
-            >
-              Documentos indexados
-            </div>
-            <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
-              {loading
-                ? "Cargando…"
-                : `${totalElements.toLocaleString()} documento${totalElements !== 1 ? "s" : ""} en el knowledge base`}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Error */}
-      {error && (
+    <>
+      {editTarget && (
+        <EditDocModal
+          doc={editTarget}
+          sector={sector}
+          onClose={() => setEditTarget(null)}
+          onSuccess={() => {
+            onRefresh();
+            setEditTarget(null);
+          }}
+        />
+      )}
+      {/* ── Modal de confirmación ── */}
+      {deleteTarget && (
         <div
           style={{
-            margin: "16px 20px",
-            padding: "10px 14px",
-            borderRadius: 10,
-            background: "var(--danger)12",
-            border: "1px solid var(--danger)30",
-            color: "var(--danger)",
-            fontSize: 13,
+            position: "fixed",
+            inset: 0,
+            background: "#00000070",
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
           }}
+          onClick={() => !deleting && setDeleteTarget(null)}
         >
-          {error}
+          <div
+            style={{
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: "28px 32px",
+              width: 420,
+              boxShadow: "0 20px 60px #0008",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  width: 38,
+                  height: 38,
+                  borderRadius: 10,
+                  background: "#ef444418",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "#ef4444",
+                  flexShrink: 0,
+                }}
+              >
+                <Icon d={Icons.trash} size={18} />
+              </div>
+              <div>
+                <div
+                  style={{
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: "var(--text)",
+                  }}
+                >
+                  Eliminar documento
+                </div>
+                <div
+                  style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}
+                >
+                  Esta acción eliminará el documento y todos sus chunks del
+                  vector store.
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "var(--bg)",
+                border: "1px solid var(--border)",
+                borderRadius: 10,
+                padding: "10px 14px",
+                fontSize: 13,
+                color: "var(--text)",
+                marginBottom: 20,
+                fontWeight: 500,
+              }}
+            >
+              {deleteTarget.titulo || "Sin título"}
+            </div>
+
+            {deleteError && (
+              <div
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  background: "#ef444412",
+                  border: "1px solid #ef444430",
+                  color: "#ef4444",
+                  fontSize: 12,
+                  marginBottom: 14,
+                }}
+              >
+                {deleteError}
+              </div>
+            )}
+
+            <div
+              style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+            >
+              <button
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteError("");
+                }}
+                disabled={deleting}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 9,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: "var(--muted)",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                style={{
+                  padding: "9px 18px",
+                  borderRadius: 9,
+                  border: "none",
+                  background: deleting ? "#ef444460" : "#ef4444",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: deleting ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                }}
+              >
+                {deleting ? (
+                  <>
+                    <svg
+                      style={{
+                        width: 13,
+                        height: 13,
+                        animation: "spin 1s linear infinite",
+                      }}
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        opacity="0.25"
+                      />
+                      <path
+                        d="M4 12a8 8 0 018-8"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    Eliminando…
+                  </>
+                ) : (
+                  <>
+                    <Icon d={Icons.trash} size={13} /> Eliminar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Table */}
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Título</th>
-              <th style={thStyle}>Categoría</th>
-              <th style={thStyle}>Subcategoría</th>
-              <th style={thStyle}>Fuente</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  {[70, 30, 30, 25].map((w, j) => (
-                    <td key={j} style={{ ...tdStyle }}>
-                      <div
-                        style={{
-                          height: 12,
-                          borderRadius: 4,
-                          background: "var(--border)",
-                          width: `${w}%`,
-                          animation: "pulse 1.5s infinite",
-                        }}
-                      />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : docs.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={4}
-                  style={{ padding: "48px 24px", textAlign: "center" }}
-                >
-                  <div style={{ color: "var(--muted)", fontSize: 13 }}>
-                    <Icon d={Icons.brain} size={32} />
-                    <div style={{ marginTop: 12, fontWeight: 500 }}>
-                      No hay documentos todavía
-                    </div>
-                    <div style={{ marginTop: 4, fontSize: 12 }}>
-                      Usa el formulario de arriba para subir tu primer documento
-                      al knowledge base.
-                    </div>
-                  </div>
-                </td>
-              </tr>
-            ) : (
-              docs.map((doc) => {
-                const catColor = CATEGORY_COLORS[doc.categoria] || {
-                  bg: "var(--border)",
-                  text: "var(--muted)",
-                };
-                return (
-                  <tr
-                    key={doc.id}
-                    style={{ transition: "background 0.1s" }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = "var(--bg)")
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = "transparent")
-                    }
-                  >
-                    <td style={tdStyle}>
-                      <div style={{ fontWeight: 500 }}>
-                        {doc.titulo || "Sin título"}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: 10,
-                          color: "var(--muted)",
-                          fontFamily: "'DM Mono', monospace",
-                          marginTop: 2,
-                        }}
-                      >
-                        {doc.id?.slice(0, 8)}…
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <span
-                        style={{
-                          fontSize: 11,
-                          padding: "3px 9px",
-                          borderRadius: 20,
-                          background: catColor.bg,
-                          color: catColor.text,
-                          fontWeight: 600,
-                        }}
-                      >
-                        {formatLabel(doc.categoria) || "—"}
-                      </span>
-                    </td>
-                    <td style={{ ...tdStyle, color: "var(--muted)" }}>
-                      {doc.subcategoria ? formatLabel(doc.subcategoria) : "—"}
-                    </td>
-                    <td
-                      style={{
-                        ...tdStyle,
-                        color: "var(--muted)",
-                        fontFamily: "'DM Mono', monospace",
-                        fontSize: 11,
-                      }}
-                    >
-                      {doc.fuente || "—"}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {/* ── Tabla ── */}
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        {/* Header */}
         <div
           style={{
-            padding: "14px 20px",
-            borderTop: "1px solid var(--border)",
+            padding: "18px 20px",
+            borderBottom: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>
-            Página <strong style={{ color: "var(--text)" }}>{page + 1}</strong>{" "}
-            de <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
-          </span>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[
-              {
-                label: "Anterior",
-                icon: Icons.chevLeft,
-                action: () => setPage((p) => Math.max(0, p - 1)),
-                disabled: page === 0,
-              },
-              {
-                label: "Siguiente",
-                icon: Icons.chevRight,
-                action: () => setPage((p) => Math.min(totalPages - 1, p + 1)),
-                disabled: page >= totalPages - 1,
-              },
-            ].map(({ label, icon, action, disabled }) => (
-              <button
-                key={label}
-                onClick={action}
-                disabled={disabled || loading}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "transparent",
-                  color: disabled ? "var(--muted)" : "var(--text)",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  cursor: disabled ? "not-allowed" : "pointer",
-                  opacity: disabled ? 0.45 : 1,
-                  transition: "all 0.15s",
-                }}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "var(--accent)18",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
+              <Icon d={Icons.docs} size={15} />
+            </div>
+            <div>
+              <div
+                style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
               >
-                {label === "Anterior" && <Icon d={icon} size={13} />}
-                {label}
-                {label === "Siguiente" && <Icon d={icon} size={13} />}
-              </button>
-            ))}
+                Documentos indexados
+              </div>
+              <div
+                style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}
+              >
+                {loading
+                  ? "Cargando…"
+                  : `${totalElements.toLocaleString()} documento${totalElements !== 1 ? "s" : ""} en el knowledge base`}
+              </div>
+            </div>
           </div>
         </div>
-      )}
-    </div>
+
+        {error && (
+          <div
+            style={{
+              margin: "16px 20px",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "var(--danger)12",
+              border: "1px solid var(--danger)30",
+              color: "var(--danger)",
+              fontSize: 13,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Título</th>
+                <th style={thStyle}>Categoría</th>
+                <th style={thStyle}>Subcategoría</th>
+                <th style={thStyle}>Fuente</th>
+                <th style={{ ...thStyle, width: 48 }}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    {[70, 30, 30, 25, 5].map((w, j) => (
+                      <td key={j} style={{ ...tdStyle }}>
+                        <div
+                          style={{
+                            height: 12,
+                            borderRadius: 4,
+                            background: "var(--border)",
+                            width: `${w}%`,
+                            animation: "pulse 1.5s infinite",
+                          }}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : docs.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    style={{ padding: "48px 24px", textAlign: "center" }}
+                  >
+                    <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                      <Icon d={Icons.brain} size={32} />
+                      <div style={{ marginTop: 12, fontWeight: 500 }}>
+                        No hay documentos todavía
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12 }}>
+                        Usa el formulario de arriba para subir tu primer
+                        documento al knowledge base.
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                docs.map((doc) => {
+                  const catColor = CATEGORY_COLORS[doc.categoria] || {
+                    bg: "var(--border)",
+                    text: "var(--muted)",
+                  };
+                  return (
+                    <tr
+                      key={doc.id}
+                      style={{ transition: "background 0.1s" }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "var(--bg)")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "transparent")
+                      }
+                    >
+                      <td style={tdStyle}>
+                        <div style={{ fontWeight: 500 }}>
+                          {doc.titulo || "Sin título"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            color: "var(--muted)",
+                            fontFamily: "'DM Mono', monospace",
+                            marginTop: 2,
+                          }}
+                        >
+                          {doc.id?.slice(0, 8)}…
+                        </div>
+                      </td>
+                      <td style={tdStyle}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "3px 9px",
+                            borderRadius: 20,
+                            background: catColor.bg,
+                            color: catColor.text,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {formatLabel(doc.categoria) || "—"}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, color: "var(--muted)" }}>
+                        {doc.subcategoria ? formatLabel(doc.subcategoria) : "—"}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          color: "var(--muted)",
+                          fontFamily: "'DM Mono', monospace",
+                          fontSize: 11,
+                        }}
+                      >
+                        {doc.fuente || "—"}
+                      </td>
+                      <td style={{ ...tdStyle, textAlign: "center" }}>
+                        {/* Botón editar */}
+                        <button
+                          onClick={() => setEditTarget(doc)}
+                          title="Editar documento"
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 7,
+                            border: "1px solid transparent",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all 0.15s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background =
+                              "var(--accent)15";
+                            e.currentTarget.style.color = "var(--accent)";
+                            e.currentTarget.style.borderColor =
+                              "var(--accent)30";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--muted)";
+                            e.currentTarget.style.borderColor = "transparent";
+                          }}
+                        >
+                          <Icon d={Icons.edit} size={14} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setDeleteError("");
+                            setDeleteTarget(doc);
+                          }}
+                          title="Eliminar documento"
+                          style={{
+                            width: 30,
+                            height: 30,
+                            borderRadius: 7,
+                            border: "1px solid transparent",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            cursor: "pointer",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            transition: "all 0.15s",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.background = "#ef444415";
+                            e.currentTarget.style.color = "#ef4444";
+                            e.currentTarget.style.borderColor = "#ef444430";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = "transparent";
+                            e.currentTarget.style.color = "var(--muted)";
+                            e.currentTarget.style.borderColor = "transparent";
+                          }}
+                        >
+                          <Icon d={Icons.trash} size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {totalPages > 1 && (
+          <div
+            style={{
+              padding: "14px 20px",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "var(--muted)" }}>
+              Página{" "}
+              <strong style={{ color: "var(--text)" }}>{page + 1}</strong> de{" "}
+              <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                {
+                  label: "Anterior",
+                  icon: Icons.chevLeft,
+                  action: () => setPage((p) => Math.max(0, p - 1)),
+                  disabled: page === 0,
+                },
+                {
+                  label: "Siguiente",
+                  icon: Icons.chevRight,
+                  action: () => setPage((p) => Math.min(totalPages - 1, p + 1)),
+                  disabled: page >= totalPages - 1,
+                },
+              ].map(({ label, icon, action, disabled }) => (
+                <button
+                  key={label}
+                  onClick={action}
+                  disabled={disabled || loading}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    borderRadius: 8,
+                    border: "1px solid var(--border)",
+                    background: "transparent",
+                    color: disabled ? "var(--muted)" : "var(--text)",
+                    fontSize: 12,
+                    fontWeight: 500,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.45 : 1,
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {label === "Anterior" && <Icon d={icon} size={13} />}
+                  {label}
+                  {label === "Siguiente" && <Icon d={icon} size={13} />}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
@@ -1258,7 +2031,12 @@ const UploadPanel: FC<UploadPanelProps> = ({ theme, sector }) => {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       <DataEntryForm onSuccess={handleSuccess} theme={theme} sector={sector} />
-      <DocumentTable refreshSignal={refreshSignal} theme={theme} />
+      <DocumentTable
+        refreshSignal={refreshSignal}
+        theme={theme}
+        onRefresh={handleSuccess}
+        sector={sector}
+      />
     </div>
   );
 };
