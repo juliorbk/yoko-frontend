@@ -3,7 +3,6 @@ import {
   useEffect,
   type FC,
   type FormEvent,
-  type ChangeEvent,
   type CSSProperties,
   type JSX,
 } from "react";
@@ -42,16 +41,13 @@ type SectorType =
   | "salud"
   | "manufactura"
   | "otro";
-type SubPlan = "free" | "starter" | "pro" | "enterprise";
+type SubPlan = "FREE" | "PRO" | "ENTERPRISE";
 type SubStatus = "active" | "expired" | "cancelled" | "trial";
 
-interface AuthResponse {
+// FIX #1: El backend devuelve solo { token: string }, no AuthResponse con user.
+// Tipamos exactamente lo que el backend manda desde /api/super/login.
+interface SuperAdminLoginResponse {
   token: string;
-  user: {
-    id: string;
-    username?: string; // Ajustado para SuperAdmin
-    role: string;
-  };
 }
 
 // Mapea con GlobalStatsResponse de Spring Boot
@@ -62,6 +58,17 @@ interface PlatformStats {
   totalMessages: number;
   activeSubscriptions: number;
   messagesLastWeek: number[];
+}
+
+function mapBackendStats(backendData: any): PlatformStats {
+  return {
+    totalClients: backendData.totalOrganizations ?? 0,
+    totalUsers: backendData.totalUsers ?? 0,
+    totalDocuments: backendData.totalDocuments ?? 0,
+    totalMessages: backendData.totalMessages ?? 0,
+    activeSubscriptions: backendData.activeOrganizations ?? 0,
+    messagesLastWeek: backendData.messagesLastWeek ?? [],
+  };
 }
 
 // Mapea con OrgDetailDTO de Spring Boot
@@ -82,19 +89,68 @@ interface ClientOrg {
   };
 }
 
+// FIX #3: Normalizamos el sector quitando tildes y pasando a minúsculas
+// para que siempre coincida con SectorType sin importar cómo venga del backend.
+function normalizeSector(raw: string): SectorType {
+  const normalized = raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // elimina diacríticos (tildes)
+  const valid: SectorType[] = [
+    "educacion",
+    "hospitalidad",
+    "corporativo",
+    "ventas",
+    "salud",
+    "manufactura",
+    "otro",
+  ];
+  return valid.includes(normalized as SectorType)
+    ? (normalized as SectorType)
+    : "otro";
+}
+
+function mapBackendOrg(backendOrg: any): ClientOrg {
+  // FIX #6: Derivamos el status de suscripción desde el campo active del backend.
+  // El backend no tiene campo status en OrgDetailDTO, solo active: boolean.
+  const subscriptionStatus: SubStatus = backendOrg.active
+    ? "active"
+    : "cancelled";
+
+  return {
+    id: backendOrg.id ?? "",
+    name: backendOrg.name ?? "",
+    slug: backendOrg.slug ?? "",
+    // FIX #3: usamos normalizeSector en vez de .toLowerCase() directo
+    sector: normalizeSector(backendOrg.sector ?? "otro"),
+    createdAt: backendOrg.createdAt ?? "",
+    userCount: backendOrg.totalUsers ?? 0,
+    docCount: backendOrg.totalDocuments ?? 0,
+    messageCount: backendOrg.totalMessages ?? 0,
+    active: backendOrg.active ?? true,
+    subscription: {
+      plan: (backendOrg.plan ?? "FREE").toUpperCase() as SubPlan,
+      // FIX #6: status derivado de active, no hardcodeado a 'active'
+      status: subscriptionStatus,
+      expiresAt: "",
+    },
+  };
+}
+
+// FIX #2: Tipamos la respuesta completa de impersonación tal como la manda el backend (ImpersonateResponse).
+interface ImpersonateResponse {
+  token: string;
+  impersonatedEmail: string;
+  impersonatedOrgId: string;
+  impersonatedOrgName: string;
+  warning: string;
+}
+
 interface PageResponse<T> {
   content: T[];
   totalPages: number;
   totalElements: number;
   number: number;
-}
-
-// Mapea con OrgRegisterRequest de Spring Boot
-interface ClientFormData {
-  name: string;
-  slug: string;
-  sector: SectorType;
-  plan: SubPlan;
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -118,16 +174,14 @@ const SECTOR_COLOR: Record<SectorType, string> = {
 };
 
 const PLAN_LABEL: Record<SubPlan, string> = {
-  free: "Free",
-  starter: "Starter",
-  pro: "Pro",
-  enterprise: "Enterprise",
+  FREE: "Free",
+  PRO: "Pro",
+  ENTERPRISE: "Enterprise",
 };
 const PLAN_COLOR: Record<SubPlan, string> = {
-  free: "#94a3b8",
-  starter: "#0ea5e9",
-  pro: "#6366f1",
-  enterprise: "#f59e0b",
+  FREE: "#94a3b8",
+  PRO: "#6366f1",
+  ENTERPRISE: "#f59e0b",
 };
 const STATUS_LABEL: Record<SubStatus, string> = {
   active: "Activa",
@@ -177,7 +231,9 @@ const Icons: Record<string, string> = {
   link: "M10 13a5 5 0 0 0 7.54.53l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.53l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
   creditCard: "M3 3h18v18H3zM3 9h18M9 21V9",
   impersonate:
-    "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3", // Icono para suplantar
+    "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3",
+  warning:
+    "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
 };
 
 // ─── SPARKLINE ────────────────────────────────────────────────────────────────
@@ -259,7 +315,7 @@ const StatCard: FC<{
             letterSpacing: "-1px",
           }}
         >
-          {value.toLocaleString()}
+          {(value ?? 0).toLocaleString()}
         </div>
       </div>
       <div
@@ -281,6 +337,50 @@ const StatCard: FC<{
   </div>
 );
 
+// ─── IMPERSONATION BANNER ─────────────────────────────────────────────────────
+// FIX #2: Banner visible que muestra el warning del backend durante impersonación.
+const ImpersonationBanner: FC<{
+  info: ImpersonateResponse;
+  onClose: () => void;
+}> = ({ info, onClose }) => (
+  <div
+    style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 9999,
+      background: "#f59e0b",
+      color: "#1c1917",
+      padding: "10px 20px",
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      fontSize: 13,
+      fontWeight: 500,
+    }}
+  >
+    <Icon d={Icons.warning} size={16} />
+    <span>
+      <strong>Modo impersonación:</strong> Actuando como{" "}
+      <strong>{info.impersonatedEmail}</strong> en{" "}
+      <strong>{info.impersonatedOrgName}</strong>. {info.warning}
+    </span>
+    <button
+      onClick={onClose}
+      style={{
+        marginLeft: "auto",
+        background: "transparent",
+        border: "none",
+        cursor: "pointer",
+        color: "#1c1917",
+      }}
+    >
+      <Icon d={Icons.x} size={14} />
+    </button>
+  </div>
+);
+
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
 const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
   const [username, setUsername] = useState("");
@@ -293,7 +393,9 @@ const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
     setLoading(true);
     setError("");
     try {
-      const data = await api<AuthResponse>("/super/login", {
+      // FIX #1: Tipamos con SuperAdminLoginResponse porque el backend devuelve
+      // solo { token: string } desde /api/super/login, no un AuthResponse con user.
+      const data = await api<SuperAdminLoginResponse>("/super/login", {
         method: "POST",
         body: JSON.stringify({ username, password: pass }),
       });
@@ -457,8 +559,8 @@ function usePlatformStats(): { data: PlatformStats | null; loading: boolean } {
   const [data, setData] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api<PlatformStats>("/super/stats")
-      .then(setData)
+    api<any>("/super/stats")
+      .then((res) => setData(mapBackendStats(res)))
       .catch(() => setData(null))
       .finally(() => setLoading(false));
   }, []);
@@ -478,11 +580,12 @@ function useClients(page: number, refreshSignal: number) {
       setLoading(true);
       setError("");
       try {
-        const res = await api<PageResponse<ClientOrg>>(
-          `/super/organizations?page=${page}&size=10`,
+        const res = await api<PageResponse<any>>(
+          `/super/organizations?page=${page}&size=20`,
         );
         if (!cancelled) {
-          setData(res.content ?? []);
+          const mappedContent = (res.content ?? []).map(mapBackendOrg);
+          setData(mappedContent);
           setTotalPages(res.totalPages ?? 0);
           setTotalElements(res.totalElements ?? 0);
         }
@@ -505,25 +608,12 @@ function useClients(page: number, refreshSignal: number) {
     };
   }, [page, refreshSignal]);
 
-  const createClient = async (formData: ClientFormData): Promise<void> => {
-    await api("/super/organizations", {
-      method: "POST",
-      body: JSON.stringify(formData),
-    });
+  const activateOrg = async (id: string): Promise<void> => {
+    await api(`/super/organizations/${id}/activate`, { method: "PATCH" });
   };
 
-  const updateClient = async (
-    id: string,
-    updates: Partial<ClientFormData & { active: boolean }>,
-  ): Promise<void> => {
-    await api(`/super/organizations/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(updates),
-    });
-  };
-
-  const deleteClient = async (id: string): Promise<void> => {
-    await api(`/super/organizations/${id}`, { method: "DELETE" });
+  const deactivateOrg = async (id: string): Promise<void> => {
+    await api(`/super/organizations/${id}/deactivate`, { method: "PATCH" });
   };
 
   return {
@@ -532,9 +622,8 @@ function useClients(page: number, refreshSignal: number) {
     totalElements,
     loading,
     error,
-    createClient,
-    updateClient,
-    deleteClient,
+    activateOrg,
+    deactivateOrg,
   };
 }
 
@@ -555,7 +644,6 @@ const Overview: FC = () => {
       </div>
     );
 
-  // 🔥 ESTA ES LA CLAVE: Si loading terminó pero no hay stats, hubo un error de red.
   if (!stats)
     return (
       <div
@@ -600,7 +688,7 @@ const Overview: FC = () => {
           color="#22c55e"
         />
         <StatCard
-          label="Suscripciones"
+          label="Suscripciones activas"
           value={stats.activeSubscriptions}
           icon="creditCard"
           color="#f59e0b"
@@ -699,7 +787,9 @@ const Overview: FC = () => {
 };
 
 // ─── CLIENTS TABLE ────────────────────────────────────────────────────────────
-const ClientsTable: FC = () => {
+const ClientsTable: FC<{
+  onImpersonate: (info: ImpersonateResponse) => void;
+}> = ({ onImpersonate }) => {
   const [page, setPage] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
   const {
@@ -708,108 +798,25 @@ const ClientsTable: FC = () => {
     totalElements,
     loading,
     error,
-    createClient,
-    updateClient,
-    deleteClient,
+    activateOrg,
+    deactivateOrg,
   } = useClients(page, refreshSignal);
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<ClientFormData>({
-    name: "",
-    slug: "",
-    sector: "educacion",
-    plan: "starter",
-  });
-  const [status, setStatus] = useState<
-    "idle" | "loading" | "success" | "error"
-  >("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
   const handleRefresh = () => setRefreshSignal((s) => s + 1);
 
-  const openCreate = () => {
-    setEditingId(null);
-    setForm({ name: "", slug: "", sector: "educacion", plan: "starter" });
-    setShowForm(true);
-    setStatus("idle");
-    setErrorMsg("");
-  };
-
-  const openEdit = (entry: ClientOrg) => {
-    setEditingId(entry.id);
-    setForm({
-      name: entry.name,
-      slug: entry.slug,
-      sector: entry.sector,
-      plan: entry.subscription?.plan ?? "starter",
-    });
-    setShowForm(true);
-    setStatus("idle");
-    setErrorMsg("");
-  };
-
-  const handleNameChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (name === "name" && !editingId) {
-      setForm((prev) => ({
-        ...prev,
-        slug: value
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, ""),
-      }));
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!form.name || !form.slug) {
-      setErrorMsg("Nombre y slug son obligatorios.");
-      setStatus("error");
-      return;
-    }
-    setStatus("loading");
-    setErrorMsg("");
-    try {
-      if (editingId) {
-        await updateClient(editingId, form);
-      } else {
-        await createClient(form);
-      }
-      setStatus("success");
-      setShowForm(false);
-      handleRefresh();
-      setTimeout(() => setStatus("idle"), 2000);
-    } catch (err: unknown) {
-      setErrorMsg(
-        err instanceof Error ? err.message : "Error al guardar cliente.",
-      );
-      setStatus("error");
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteClient(id);
-      setConfirmDelete(null);
-      handleRefresh();
-    } catch {
-      setErrorMsg("Error al eliminar cliente.");
-      setStatus("error");
-    }
-  };
-
   const handleToggleActive = async (entry: ClientOrg) => {
     try {
-      await updateClient(entry.id, { active: !entry.active });
+      if (entry.active) {
+        await deactivateOrg(entry.id);
+      } else {
+        await activateOrg(entry.id);
+      }
       handleRefresh();
     } catch {
-      setErrorMsg("Error al cambiar estado del cliente.");
-      setStatus("error");
+      setErrorMsg("Error al cambiar estado de la organización.");
     }
   };
 
@@ -819,23 +826,22 @@ const ClientsTable: FC = () => {
     setTimeout(() => setCopiedSlug(null), 2000);
   };
 
-  // 🔥 NUEVO: Función para Suplantar a una organización
+  // FIX #2: Tipamos con ImpersonateResponse completo, guardamos en clave dedicada
+  // y mostramos el warning del backend al usuario en vez de descartarlo.
   const handleImpersonate = async (orgId: string) => {
     try {
-      const res = await api<{ token: string }>(
+      const res = await api<ImpersonateResponse>(
         `/super/organizations/${orgId}/impersonate`,
-        {
-          method: "POST",
-        },
+        { method: "POST" },
       );
-      // Guarda el token generado como token de admin normal
-      localStorage.setItem("yoko_token", res.token);
-      // Abre el dashboard normal en una pestaña nueva
+      // Guardamos el token de impersonación en su propia clave para no
+      // confundirlo con la sesión de usuario normal (yoko_token).
+      localStorage.setItem("yoko_impersonation_token", res.token);
+      // Notificamos al componente padre para mostrar el banner con el warning.
+      onImpersonate(res);
       window.open("/", "_blank");
-    } catch (err) {
-      alert(
-        "Error al intentar suplantar a la organización. Verifica los permisos.",
-      );
+    } catch {
+      alert("Error al intentar suplantar a la organización.");
     }
   };
 
@@ -863,243 +869,9 @@ const ClientsTable: FC = () => {
     borderBottom: "1px solid var(--border)",
     background: "var(--bg)",
   };
-  const inp: CSSProperties = {
-    width: "100%",
-    padding: "10px 14px",
-    borderRadius: 10,
-    border: "1px solid var(--border)",
-    background: "var(--bg)",
-    color: "var(--text)",
-    fontSize: 13,
-    boxSizing: "border-box",
-    outline: "none",
-    marginBottom: 12,
-  };
-  const selectStyle: CSSProperties = {
-    ...inp,
-    appearance: "none",
-    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "right 12px center",
-  };
-  const lbl: CSSProperties = {
-    fontSize: 11,
-    fontWeight: 600,
-    color: "var(--muted)",
-    display: "block",
-    marginBottom: 5,
-    textTransform: "uppercase",
-    letterSpacing: "0.06em",
-  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Form modal */}
-      {showForm && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.6)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 100,
-          }}
-        >
-          <div
-            style={{
-              width: 440,
-              background: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 20,
-              padding: "32px 28px",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 24,
-              }}
-            >
-              <h3
-                style={{
-                  margin: 0,
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: "var(--text)",
-                }}
-              >
-                {editingId ? "Editar Organización" : "Nueva Organización"}
-              </h3>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  color: "var(--muted)",
-                  padding: 4,
-                }}
-              >
-                <Icon d={Icons.x} size={18} />
-              </button>
-            </div>
-            <form
-              onSubmit={handleSubmit}
-              style={{ display: "flex", flexDirection: "column" }}
-            >
-              <label style={lbl}>
-                Nombre <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleNameChange}
-                placeholder="Ej: Inversiones MR"
-                disabled={status === "loading"}
-                style={inp}
-              />
-
-              <label style={lbl}>
-                Slug <span style={{ color: "var(--danger)" }}>*</span>
-              </label>
-              <input
-                name="slug"
-                value={form.slug}
-                onChange={handleNameChange}
-                placeholder="inversiones-mr"
-                disabled={status === "loading"}
-                style={{ ...inp, fontFamily: "'DM Mono', monospace" }}
-              />
-              {form.slug && (
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--muted)",
-                    marginTop: -8,
-                    marginBottom: 12,
-                    fontFamily: "'DM Mono', monospace",
-                  }}
-                >
-                  URL:{" "}
-                  <span style={{ color: "var(--accent)" }}>
-                    {window.location.origin}/{form.slug}
-                  </span>
-                </div>
-              )}
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                }}
-              >
-                <div>
-                  <label style={lbl}>Sector</label>
-                  <select
-                    name="sector"
-                    value={form.sector}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        sector: e.target.value as SectorType,
-                      }))
-                    }
-                    disabled={status === "loading"}
-                    style={{ ...selectStyle, marginBottom: 12 }}
-                  >
-                    {(Object.keys(SECTOR_LABEL) as SectorType[]).map((t) => (
-                      <option key={t} value={t}>
-                        {SECTOR_LABEL[t]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={lbl}>Plan</label>
-                  <select
-                    name="plan"
-                    value={form.plan}
-                    onChange={(e) =>
-                      setForm((p) => ({
-                        ...p,
-                        plan: e.target.value as SubPlan,
-                      }))
-                    }
-                    disabled={status === "loading"}
-                    style={{ ...selectStyle, marginBottom: 12 }}
-                  >
-                    {(Object.keys(PLAN_LABEL) as SubPlan[]).map((t) => (
-                      <option key={t} value={t}>
-                        {PLAN_LABEL[t]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {status === "error" && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    background: "var(--danger)12",
-                    border: "1px solid var(--danger)30",
-                    color: "var(--danger)",
-                    fontSize: 13,
-                    marginBottom: 14,
-                  }}
-                >
-                  {errorMsg}
-                </div>
-              )}
-              {status === "success" && (
-                <div
-                  style={{
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    background: "#22c55e14",
-                    border: "1px solid #22c55e30",
-                    color: "#22c55e",
-                    fontSize: 13,
-                    marginBottom: 14,
-                  }}
-                >
-                  Organización guardada exitosamente.
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={status === "loading"}
-                style={{
-                  padding: "11px",
-                  borderRadius: 10,
-                  border: "none",
-                  background:
-                    status === "loading" ? "var(--border)" : "var(--accent)",
-                  color: status === "loading" ? "var(--muted)" : "#fff",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: status === "loading" ? "not-allowed" : "pointer",
-                }}
-              >
-                {status === "loading"
-                  ? "Guardando…"
-                  : editingId
-                    ? "Actualizar"
-                    : "Crear Organización"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Main card */}
       <div
         style={{
           background: "var(--card)",
@@ -1147,57 +919,37 @@ const ClientsTable: FC = () => {
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <div style={{ position: "relative" }}>
-              <span
-                style={{
-                  position: "absolute",
-                  left: 10,
-                  top: "50%",
-                  transform: "translateY(-50%)",
-                  color: "var(--muted)",
-                }}
-              >
-                <Icon d={Icons.sessions} size={14} />
-              </span>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Buscar..."
-                style={{
-                  padding: "8px 12px 8px 32px",
-                  borderRadius: 8,
-                  border: "1px solid var(--border)",
-                  background: "var(--bg)",
-                  color: "var(--text)",
-                  fontSize: 13,
-                  outline: "none",
-                  width: 200,
-                }}
-              />
-            </div>
-            <button
-              onClick={openCreate}
+          <div style={{ position: "relative" }}>
+            <span
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "8px 16px",
-                borderRadius: 10,
-                border: "none",
-                background: "var(--accent)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: "pointer",
+                position: "absolute",
+                left: 10,
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "var(--muted)",
               }}
             >
-              <Icon d={Icons.plus} size={14} /> Nueva
-            </button>
+              <Icon d={Icons.sessions} size={14} />
+            </span>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar..."
+              style={{
+                padding: "8px 12px 8px 32px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "var(--bg)",
+                color: "var(--text)",
+                fontSize: 13,
+                outline: "none",
+                width: 200,
+              }}
+            />
           </div>
         </div>
 
-        {error && (
+        {(error || errorMsg) && (
           <div
             style={{
               margin: "16px 20px",
@@ -1209,7 +961,7 @@ const ClientsTable: FC = () => {
               fontSize: 13,
             }}
           >
-            {error}
+            {error || errorMsg}
           </div>
         )}
 
@@ -1314,12 +1066,12 @@ const ClientsTable: FC = () => {
                           fontSize: 11,
                           padding: "3px 9px",
                           borderRadius: 20,
-                          background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`,
-                          color: PLAN_COLOR[c.subscription?.plan ?? "free"],
+                          background: `${PLAN_COLOR[c.subscription?.plan ?? "FREE"]}18`,
+                          color: PLAN_COLOR[c.subscription?.plan ?? "FREE"],
                           fontWeight: 600,
                         }}
                       >
-                        {PLAN_LABEL[c.subscription?.plan ?? "free"]}
+                        {PLAN_LABEL[c.subscription?.plan ?? "FREE"]}
                       </span>
                     </td>
                     <td style={tdStyle}>
@@ -1345,7 +1097,7 @@ const ClientsTable: FC = () => {
                       >
                         <button
                           onClick={() => handleImpersonate(c.id)}
-                          title="Suplantar"
+                          title="Suplantar organización"
                           style={{
                             padding: "4px 8px",
                             borderRadius: 6,
@@ -1381,23 +1133,6 @@ const ClientsTable: FC = () => {
                           />
                         </button>
                         <button
-                          onClick={() => openEdit(c)}
-                          title="Editar"
-                          style={{
-                            padding: "4px 8px",
-                            borderRadius: 6,
-                            border: "none",
-                            background: "transparent",
-                            color: "var(--muted)",
-                            cursor: "pointer",
-                            fontSize: 12,
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                        >
-                          <Icon d={Icons.edit} size={13} />
-                        </button>
-                        <button
                           onClick={() => handleToggleActive(c)}
                           title={c.active ? "Desactivar" : "Activar"}
                           style={{
@@ -1414,63 +1149,6 @@ const ClientsTable: FC = () => {
                         >
                           <Icon d={Icons.check} size={13} />
                         </button>
-                        {confirmDelete === c.id ? (
-                          <div
-                            style={{
-                              display: "flex",
-                              gap: 4,
-                              alignItems: "center",
-                            }}
-                          >
-                            <button
-                              onClick={() => handleDelete(c.id)}
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "var(--danger)",
-                                color: "#fff",
-                                cursor: "pointer",
-                                fontSize: 11,
-                                fontWeight: 600,
-                              }}
-                            >
-                              Sí
-                            </button>
-                            <button
-                              onClick={() => setConfirmDelete(null)}
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "var(--border)",
-                                color: "var(--text)",
-                                cursor: "pointer",
-                                fontSize: 11,
-                              }}
-                            >
-                              No
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setConfirmDelete(c.id)}
-                            title="Eliminar"
-                            style={{
-                              padding: "4px 8px",
-                              borderRadius: 6,
-                              border: "none",
-                              background: "transparent",
-                              color: "var(--danger)",
-                              cursor: "pointer",
-                              fontSize: 12,
-                              display: "flex",
-                              alignItems: "center",
-                            }}
-                          >
-                            <Icon d={Icons.trash} size={13} />
-                          </button>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -1557,15 +1235,14 @@ const SubscriptionsView: FC = () => {
     error,
   } = useClients(page, refreshSignal);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<SubPlan>("starter");
+  const [selectedPlan, setSelectedPlan] = useState<SubPlan>("FREE");
 
   const handleRefresh = () => setRefreshSignal((s) => s + 1);
 
   const changePlan = async (id: string, plan: SubPlan) => {
     try {
-      // Usando el endpoint específico para ChangePlanRequest
       await api(`/super/organizations/${id}/plan`, {
-        method: "PUT",
+        method: "PATCH",
         body: JSON.stringify({ plan }),
       });
       setEditingPlanId(null);
@@ -1595,15 +1272,14 @@ const SubscriptionsView: FC = () => {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      {/* Plan cards */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: "repeat(3, 1fr)",
           gap: 16,
         }}
       >
-        {(["free", "starter", "pro", "enterprise"] as SubPlan[]).map((plan) => {
+        {(["FREE", "PRO", "ENTERPRISE"] as SubPlan[]).map((plan) => {
           const count = clients.filter(
             (c) => c.subscription?.plan === plan,
           ).length;
@@ -1650,7 +1326,6 @@ const SubscriptionsView: FC = () => {
         })}
       </div>
 
-      {/* Table */}
       <div
         style={{
           background: "var(--card)",
@@ -1792,11 +1467,9 @@ const SubscriptionsView: FC = () => {
                               fontSize: 12,
                             }}
                           >
-                            {(Object.keys(PLAN_LABEL) as SubPlan[]).map((p) => (
-                              <option key={p} value={p}>
-                                {PLAN_LABEL[p]}
-                              </option>
-                            ))}
+                            <option value="FREE">Free</option>
+                            <option value="PRO">Pro</option>
+                            <option value="ENTERPRISE">Enterprise</option>
                           </select>
                           <button
                             onClick={() => changePlan(c.id, selectedPlan)}
@@ -1833,16 +1506,17 @@ const SubscriptionsView: FC = () => {
                             fontSize: 11,
                             padding: "3px 9px",
                             borderRadius: 20,
-                            background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`,
-                            color: PLAN_COLOR[c.subscription?.plan ?? "free"],
+                            background: `${PLAN_COLOR[c.subscription?.plan ?? "FREE"]}18`,
+                            color: PLAN_COLOR[c.subscription?.plan ?? "FREE"],
                             fontWeight: 600,
                           }}
                         >
-                          {PLAN_LABEL[c.subscription?.plan ?? "free"]}
+                          {PLAN_LABEL[c.subscription?.plan ?? "FREE"]}
                         </span>
                       )}
                     </td>
                     <td style={tdStyle}>
+                      {/* FIX #6: status ahora refleja el campo active del backend */}
                       <span
                         style={{
                           fontSize: 11,
@@ -1867,7 +1541,7 @@ const SubscriptionsView: FC = () => {
                         <button
                           onClick={() => {
                             setEditingPlanId(c.id);
-                            setSelectedPlan(c.subscription?.plan ?? "starter");
+                            setSelectedPlan(c.subscription?.plan ?? "FREE");
                           }}
                           style={{
                             padding: "4px 8px",
@@ -1957,8 +1631,9 @@ const SubscriptionsView: FC = () => {
 };
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
+type TabId2 = TabId;
 interface TabDef {
-  id: TabId;
+  id: TabId2;
   label: string;
   icon: string;
 }
@@ -1969,9 +1644,13 @@ export default function SuperAdmin(): JSX.Element {
   );
   const [tab, setTab] = useState<TabId>("overview");
   const [dark, setDark] = useState<boolean>(true);
+  // FIX #2: Estado para controlar el banner de impersonación con los datos completos del backend.
+  const [impersonationInfo, setImpersonationInfo] =
+    useState<ImpersonateResponse | null>(null);
 
   const logout = (): void => {
     localStorage.removeItem("yoko_superadmin_token");
+    localStorage.removeItem("yoko_impersonation_token");
     setToken(null);
   };
 
@@ -2028,12 +1707,23 @@ export default function SuperAdmin(): JSX.Element {
         @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
       `}</style>
 
+      {/* FIX #2: Banner de impersonación visible con warning del backend */}
+      {impersonationInfo && (
+        <ImpersonationBanner
+          info={impersonationInfo}
+          onClose={() => {
+            setImpersonationInfo(null);
+            localStorage.removeItem("yoko_impersonation_token");
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <div
         style={{
           ...(theme as CSSProperties),
           position: "fixed",
-          top: 0,
+          top: impersonationInfo ? 40 : 0,
           left: 0,
           bottom: 0,
           width: 220,
@@ -2042,6 +1732,7 @@ export default function SuperAdmin(): JSX.Element {
           display: "flex",
           flexDirection: "column",
           padding: "24px 0",
+          transition: "top 0.2s",
         }}
       >
         <div
@@ -2162,6 +1853,8 @@ export default function SuperAdmin(): JSX.Element {
           ...(theme as CSSProperties),
           marginLeft: 220,
           padding: "32px",
+          paddingTop: impersonationInfo ? 72 : 32,
+          transition: "padding-top 0.2s",
         }}
       >
         <div style={{ marginBottom: 28 }}>
@@ -2180,7 +1873,9 @@ export default function SuperAdmin(): JSX.Element {
           </p>
         </div>
         {tab === "overview" && <Overview />}
-        {tab === "clients" && <ClientsTable />}
+        {tab === "clients" && (
+          <ClientsTable onImpersonate={setImpersonationInfo} />
+        )}
         {tab === "subscriptions" && <SubscriptionsView />}
       </div>
     </div>

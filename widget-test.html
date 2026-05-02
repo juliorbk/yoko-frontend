@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prueba Widget Yoko</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      line-height: 1.6;
+    }
+    h1 { color: #333; }
+    .content {
+      background: #f5f5f5;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Mi Web de Prueba</h1>
+  <p>Esta es una página de prueba para el widget de chat Yoko.</p>
+  
+  <div class="content">
+    <h2>Contenido de ejemplo</h2>
+    <p>Preguntas frecuentes:</p>
+    <ul>
+      <li>¿Cómo funciona el servicio?</li>
+      <li>¿Cuáles son los precios?</li>
+      <li>¿Cómo contacto soporte?</li>
+    </ul>
+  </div>
+
+  <!-- Polyfill para process -->
+  <script>
+    window.process = window.process || {
+      env: {},
+      nextTick: (fn) => setTimeout(fn, 0),
+      platform: 'browser'
+    };
+  </script>
+  
+  <!-- Widget Script -->
+  <script 
+    src="dist/yoko-widget.js"
+    data-org-slug="rumba-app"
+    data-primary-color="#B3CFE5"
+    data-bg-color="#ffffff"
+    data-text-color="#333333"
+    data-greeting="¡Hola! Soy el asistente de Rumba App. ¿En qué puedo ayudarte?"
+    data-api-url="http://localhost:8080/api"
+  ></script>
+</body>
+</html>

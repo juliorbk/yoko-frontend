@@ -16,6 +16,7 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Rutas públicas */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route
@@ -23,20 +24,19 @@ function App() {
           element={<RegisterOrganization />}
         />
 
+        {/* Rutas protegidas - usuarios/admins regulares */}
         <Route element={<ProtectedRoute />}>
           <Route path="/chat" element={<Chat />} />
-        </Route>
-        <Route element={<ProtectedRoute />}>
           <Route path="/admin" element={<Admin />} />
         </Route>
-        <Route>
-          <Route path="/super" element={<SuperAdmin />} />
-        </Route>
 
+        {/* Super Admin - maneja su propia autenticación */}
+        <Route path="/super" element={<SuperAdmin />} />
+
+        {/* Redirección por defecto (corrige el typo: es <Navigate no <Navigate) */}
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
 }
-
 export default App;
