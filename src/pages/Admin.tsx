@@ -644,11 +644,12 @@ const EditDocModal: FC<EditDocModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const [form, setForm] = useState<DataEntryRequest>({
+  const [form, setForm] = useState<UpdateDocRequest>({
     titulo: doc.titulo || "",
     categoria: doc.categoria || "",
     subcategoria: doc.subcategoria || "",
     content: "",
+    fuente: doc.fuente || "",
   });
   const [loadingDetail, setLoadingDetail] = useState(true);
   const [status, setStatus] = useState<
@@ -698,6 +699,7 @@ const EditDocModal: FC<EditDocModalProps> = ({
         body: JSON.stringify({
           ...form,
           subcategoria: form.subcategoria || "general",
+          fuente: doc.fuente ?? "",
         }),
       });
       setStatus("success");
@@ -1688,6 +1690,7 @@ const DataEntryForm: FC<DataEntryFormProps> = ({ onSuccess, sector }) => {
     subcategoria: "",
     content: "",
   });
+
   const [status, setStatus] = useState<
     "idle" | "loading" | "success" | "error"
   >("idle");
@@ -2020,7 +2023,13 @@ interface UploadPanelProps {
   theme: Record<string, string>;
   sector: SectorType;
 }
-
+interface UpdateDocRequest {
+  titulo: string;
+  categoria: string;
+  subcategoria: string;
+  content: string;
+  fuente: string;
+}
 const UploadPanel: FC<UploadPanelProps> = ({ theme, sector }) => {
   const [refreshSignal, setRefreshSignal] = useState(0);
 

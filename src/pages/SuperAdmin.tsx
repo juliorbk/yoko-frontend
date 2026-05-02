@@ -34,7 +34,14 @@ const api = async <T = unknown,>(
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 type TabId = "overview" | "clients" | "subscriptions";
-type SectorType = "educacion" | "hospitalidad" | "corporativo" | "ventas" | "salud" | "manufactura" | "otro";
+type SectorType =
+  | "educacion"
+  | "hospitalidad"
+  | "corporativo"
+  | "ventas"
+  | "salud"
+  | "manufactura"
+  | "otro";
 type SubPlan = "free" | "starter" | "pro" | "enterprise";
 type SubStatus = "active" | "expired" | "cancelled" | "trial";
 
@@ -42,14 +49,12 @@ interface AuthResponse {
   token: string;
   user: {
     id: string;
-    name: string;
-    email: string;
+    username?: string; // Ajustado para SuperAdmin
     role: string;
-    organizationName?: string;
-    organizationSector?: string;
   };
 }
 
+// Mapea con GlobalStatsResponse de Spring Boot
 interface PlatformStats {
   totalClients: number;
   totalUsers: number;
@@ -59,6 +64,7 @@ interface PlatformStats {
   messagesLastWeek: number[];
 }
 
+// Mapea con OrgDetailDTO de Spring Boot
 interface ClientOrg {
   id: string;
   name: string;
@@ -83,6 +89,7 @@ interface PageResponse<T> {
   number: number;
 }
 
+// Mapea con OrgRegisterRequest de Spring Boot
 interface ClientFormData {
   name: string;
   slug: string;
@@ -91,9 +98,6 @@ interface ClientFormData {
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
-const formatLabel = (raw: string): string =>
-  raw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
 const SECTOR_LABEL: Record<SectorType, string> = {
   educacion: "Educación",
   hospitalidad: "Hospitalidad",
@@ -140,55 +144,136 @@ const STATUS_COLOR: Record<SubStatus, string> = {
 
 // ─── ICONS ────────────────────────────────────────────────────────────────────
 const Icon: FC<{ d: string; size?: number }> = ({ d, size = 18 }) => (
-  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.8}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     <path d={d} />
   </svg>
 );
 const Icons: Record<string, string> = {
-  users:    "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
+  users:
+    "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm13 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75",
   messages: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
-  docs:     "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
+  docs: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
   sessions: "M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z",
-  logout:   "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
-  x:        "M18 6L6 18M6 6l12 12",
-  bot:      "M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM5 14v1a7 7 0 0 0 14 0v-1M8.5 17.5v1M15.5 17.5v1",
-  check:    "M20 6L9 17l-5-5",
+  logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
+  x: "M18 6L6 18M6 6l12 12",
+  bot: "M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2zM5 14v1a7 7 0 0 0 14 0v-1M8.5 17.5v1M15.5 17.5v1",
+  check: "M20 6L9 17l-5-5",
   chevLeft: "M15 18l-6-6 6-6",
-  chevRight:"M9 18l6-6-6-6",
-  edit:     "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
-  trash:    "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6",
-  copy:     "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z",
-  plus:     "M12 5v14M5 12h14",
-  link:     "M10 13a5 5 0 0 0 7.54.53l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.53l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
-  creditCard:"M3 3h18v18H3zM3 9h18M9 21V9",
+  chevRight: "M9 18l6-6-6-6",
+  edit: "M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z",
+  trash:
+    "M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6",
+  copy: "M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 2h6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z",
+  plus: "M12 5v14M5 12h14",
+  link: "M10 13a5 5 0 0 0 7.54.53l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.53l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71",
+  creditCard: "M3 3h18v18H3zM3 9h18M9 21V9",
+  impersonate:
+    "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3", // Icono para suplantar
 };
 
 // ─── SPARKLINE ────────────────────────────────────────────────────────────────
 const Sparkline: FC<{ data: number[]; color: string }> = ({ data, color }) => {
-  const max = Math.max(...data), min = Math.min(...data);
-  const h = 40, w = 120;
-  const pts = data.map((v, i) => {
-    const x = (i / (data.length - 1)) * w;
-    const y = h - ((v - min) / (max - min || 1)) * (h - 6) - 3;
-    return `${x},${y}`;
-  }).join(" ");
+  const max = Math.max(...data),
+    min = Math.min(...data);
+  const h = 40,
+    w = 120;
+  const pts = data
+    .map((v, i) => {
+      const x = (i / (data.length - 1)) * w;
+      const y = h - ((v - min) / (max - min || 1)) * (h - 6) - 3;
+      return `${x},${y}`;
+    })
+    .join(" ");
   return (
     <svg width={w} height={h} style={{ overflow: "visible" }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" />
-      <polyline points={`0,${h} ${pts} ${w},${h}`} fill={color} fillOpacity="0.12" stroke="none" />
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <polyline
+        points={`0,${h} ${pts} ${w},${h}`}
+        fill={color}
+        fillOpacity="0.12"
+        stroke="none"
+      />
     </svg>
   );
 };
 
 // ─── STAT CARD ────────────────────────────────────────────────────────────────
-const StatCard: FC<{ label: string; value: number; icon: string; color: string; sparkData?: number[] }> = ({ label, value, icon, color, sparkData }) => (
-  <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+const StatCard: FC<{
+  label: string;
+  value: number;
+  icon: string;
+  color: string;
+  sparkData?: number[];
+}> = ({ label, value, icon, color, sparkData }) => (
+  <div
+    style={{
+      background: "var(--card)",
+      border: "1px solid var(--border)",
+      borderRadius: 16,
+      padding: "20px 24px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+    }}
+  >
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+      }}
+    >
       <div>
-        <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4, letterSpacing: "0.05em", textTransform: "uppercase" }}>{label}</div>
-        <div style={{ fontSize: 32, fontWeight: 700, color: "var(--text)", fontFamily: "'DM Mono', monospace", letterSpacing: "-1px" }}>{value.toLocaleString()}</div>
+        <div
+          style={{
+            fontSize: 12,
+            color: "var(--muted)",
+            marginBottom: 4,
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+          }}
+        >
+          {label}
+        </div>
+        <div
+          style={{
+            fontSize: 32,
+            fontWeight: 700,
+            color: "var(--text)",
+            fontFamily: "'DM Mono', monospace",
+            letterSpacing: "-1px",
+          }}
+        >
+          {value.toLocaleString()}
+        </div>
       </div>
-      <div style={{ width: 40, height: 40, borderRadius: 10, background: `${color}18`, display: "flex", alignItems: "center", justifyContent: "center", color }}>
+      <div
+        style={{
+          width: 40,
+          height: 40,
+          borderRadius: 10,
+          background: `${color}18`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color,
+        }}
+      >
         <Icon d={Icons[icon]} size={20} />
       </div>
     </div>
@@ -198,7 +283,7 @@ const StatCard: FC<{ label: string; value: number; icon: string; color: string; 
 
 // ─── LOGIN PAGE ───────────────────────────────────────────────────────────────
 const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [pass, setPass] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -208,57 +293,160 @@ const LoginPage: FC<{ onLogin: (token: string) => void }> = ({ onLogin }) => {
     setLoading(true);
     setError("");
     try {
-      const data = await api<AuthResponse>("/auth/login", {
+      const data = await api<AuthResponse>("/super/login", {
         method: "POST",
-        body: JSON.stringify({ email, password: pass }),
+        body: JSON.stringify({ username, password: pass }),
       });
-      if (data.user?.role !== "SUPER_ADMIN") {
-        setError("Acceso denegado: Se requieren permisos de Super Admin.");
-        return;
-      }
+
       localStorage.setItem("yoko_superadmin_token", data.token);
       onLogin(data.token);
     } catch {
-      if (pass === "superadmin") {
-        localStorage.setItem("yoko_superadmin_token", "demo-super-token");
-        onLogin("demo-super-token");
-      } else {
-        setError("Credenciales incorrectas o error de servidor.");
-      }
+      setError("Credenciales incorrectas o error de servidor.");
     } finally {
       setLoading(false);
     }
   };
 
-  const inp: CSSProperties = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 14, boxSizing: "border-box", outline: "none" };
+  const inp: CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg)",
+    color: "var(--text)",
+    fontSize: 14,
+    boxSizing: "border-box",
+    outline: "none",
+  };
 
   return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg)" }}>
-      <div style={{ width: 400, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 20, padding: "40px 36px" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 32 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "var(--bg)",
+      }}
+    >
+      <div
+        style={{
+          width: 400,
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 20,
+          padding: "40px 36px",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            marginBottom: 32,
+          }}
+        >
+          <div
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 10,
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+            }}
+          >
             <Icon d={Icons.bot} size={20} />
           </div>
           <div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}>Yoko Super Admin</div>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Panel de gestión de clientes</div>
+            <div
+              style={{ fontSize: 16, fontWeight: 700, color: "var(--text)" }}
+            >
+              Yoko Super Admin
+            </div>
+            <div style={{ fontSize: 12, color: "var(--muted)" }}>
+              Panel de gestión global
+            </div>
           </div>
         </div>
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <form
+          onSubmit={submit}
+          style={{ display: "flex", flexDirection: "column", gap: 14 }}
+        >
           <div>
-            <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>Correo</label>
-            <input value={email} onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)} placeholder="superadmin@yoko.ai" type="email" required style={inp} />
+            <label
+              style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Username
+            </label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="yokoadmin"
+              type="text"
+              required
+              style={inp}
+            />
           </div>
           <div>
-            <label style={{ fontSize: 12, color: "var(--muted)", display: "block", marginBottom: 6 }}>Contraseña</label>
-            <input value={pass} onChange={(e: ChangeEvent<HTMLInputElement>) => setPass(e.target.value)} placeholder="••••••••" type="password" required style={inp} />
+            <label
+              style={{
+                fontSize: 12,
+                color: "var(--muted)",
+                display: "block",
+                marginBottom: 6,
+              }}
+            >
+              Contraseña
+            </label>
+            <input
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              placeholder="••••••••"
+              type="password"
+              required
+              style={inp}
+            />
           </div>
-          {error && <div style={{ fontSize: 13, color: "var(--danger)", background: "var(--danger)18", borderRadius: 8, padding: "8px 12px" }}>{error}</div>}
-          <button type="submit" disabled={loading} style={{ marginTop: 6, padding: "11px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #6366f1, #8b5cf6)", color: "#fff", fontSize: 14, fontWeight: 600, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+          {error && (
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--danger)",
+                background: "var(--danger)18",
+                borderRadius: 8,
+                padding: "8px 12px",
+              }}
+            >
+              {error}
+            </div>
+          )}
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              marginTop: 6,
+              padding: "11px",
+              borderRadius: 10,
+              border: "none",
+              background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: loading ? "not-allowed" : "pointer",
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
             {loading ? "Iniciando..." : "Entrar"}
           </button>
         </form>
-        <p style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", marginTop: 20 }}>Demo: cualquier correo / superadmin</p>
       </div>
     </div>
   );
@@ -269,7 +457,7 @@ function usePlatformStats(): { data: PlatformStats | null; loading: boolean } {
   const [data, setData] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    api<PlatformStats>("/superadmin/stats")
+    api<PlatformStats>("/super/stats")
       .then(setData)
       .catch(() => setData(null))
       .finally(() => setLoading(false));
@@ -290,7 +478,9 @@ function useClients(page: number, refreshSignal: number) {
       setLoading(true);
       setError("");
       try {
-        const res = await api<PageResponse<ClientOrg>>(`/superadmin/clients?page=${page}&size=10`);
+        const res = await api<PageResponse<ClientOrg>>(
+          `/super/organizations?page=${page}&size=10`,
+        );
         if (!cancelled) {
           setData(res.content ?? []);
           setTotalPages(res.totalPages ?? 0);
@@ -298,7 +488,11 @@ function useClients(page: number, refreshSignal: number) {
         }
       } catch (err: unknown) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Error al cargar clientes.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "Error al cargar organizaciones.",
+          );
           setData([]);
         }
       } finally {
@@ -306,62 +500,198 @@ function useClients(page: number, refreshSignal: number) {
       }
     };
     fetchClients();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [page, refreshSignal]);
 
   const createClient = async (formData: ClientFormData): Promise<void> => {
-    await api("/superadmin/clients", {
+    await api("/super/organizations", {
       method: "POST",
       body: JSON.stringify(formData),
     });
   };
 
-  const updateClient = async (id: string, updates: Partial<ClientFormData & { active: boolean }>): Promise<void> => {
-    await api(`/superadmin/clients/${id}`, {
+  const updateClient = async (
+    id: string,
+    updates: Partial<ClientFormData & { active: boolean }>,
+  ): Promise<void> => {
+    await api(`/super/organizations/${id}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
   };
 
   const deleteClient = async (id: string): Promise<void> => {
-    await api(`/superadmin/clients/${id}`, { method: "DELETE" });
+    await api(`/super/organizations/${id}`, { method: "DELETE" });
   };
 
-  return { data, totalPages, totalElements, loading, error, createClient, updateClient, deleteClient };
+  return {
+    data,
+    totalPages,
+    totalElements,
+    loading,
+    error,
+    createClient,
+    updateClient,
+    deleteClient,
+  };
 }
 
 // ─── OVERVIEW ─────────────────────────────────────────────────────────────────
 const Overview: FC = () => {
   const { data: stats, loading } = usePlatformStats();
-  if (loading || !stats) return <div style={{ color: "var(--muted)", fontSize: 13 }}>Cargando estadísticas...</div>;
+  if (loading)
+    return (
+      <div
+        style={{
+          color: "var(--muted)",
+          fontSize: 13,
+          textAlign: "center",
+          padding: 40,
+        }}
+      >
+        Cargando estadísticas...
+      </div>
+    );
+
+  // 🔥 ESTA ES LA CLAVE: Si loading terminó pero no hay stats, hubo un error de red.
+  if (!stats)
+    return (
+      <div
+        style={{
+          color: "var(--danger)",
+          background: "var(--danger)12",
+          padding: 20,
+          borderRadius: 10,
+          textAlign: "center",
+        }}
+      >
+        Error al cargar las estadísticas. Verifica que el backend esté encendido
+        en el puerto 8080.
+      </div>
+    );
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        <StatCard label="Clientes activos" value={stats.totalClients} icon="link" color="#6366f1" />
-        <StatCard label="Usuarios totales" value={stats.totalUsers} icon="users" color="#0ea5e9" />
-        <StatCard label="Documentos" value={stats.totalDocuments} icon="docs" color="#22c55e" />
-        <StatCard label="Suscripciones" value={stats.activeSubscriptions} icon="creditCard" color="#f59e0b" />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 16,
+        }}
+      >
+        <StatCard
+          label="Organizaciones"
+          value={stats.totalClients}
+          icon="link"
+          color="#6366f1"
+        />
+        <StatCard
+          label="Usuarios totales"
+          value={stats.totalUsers}
+          icon="users"
+          color="#0ea5e9"
+        />
+        <StatCard
+          label="Documentos"
+          value={stats.totalDocuments}
+          icon="docs"
+          color="#22c55e"
+        />
+        <StatCard
+          label="Suscripciones"
+          value={stats.activeSubscriptions}
+          icon="creditCard"
+          color="#f59e0b"
+        />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, padding: 24 }}>
-          <h3 style={{ margin: "0 0 18px", fontSize: 15, fontWeight: 600, color: "var(--text)" }}>Mensajes últimos 7 días</h3>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 120 }}>
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            padding: 24,
+          }}
+        >
+          <h3
+            style={{
+              margin: "0 0 18px",
+              fontSize: 15,
+              fontWeight: 600,
+              color: "var(--text)",
+            }}
+          >
+            Mensajes últimos 7 días
+          </h3>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              gap: 8,
+              height: 120,
+            }}
+          >
             {stats.messagesLastWeek.map((v, i) => {
               const max = Math.max(...stats.messagesLastWeek, 1);
               const days = ["L", "M", "X", "J", "V", "S", "D"];
               return (
-                <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: "100%", borderRadius: "4px 4px 0 0", background: i === 6 ? "#6366f1" : "#6366f130", height: `${(v / max) * 90}px`, transition: "height 0.3s" }} />
-                  <span style={{ fontSize: 10, color: "var(--muted)" }}>{days[i]}</span>
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      borderRadius: "4px 4px 0 0",
+                      background: i === 6 ? "#6366f1" : "#6366f130",
+                      height: `${(v / max) * 90}px`,
+                      transition: "height 0.3s",
+                    }}
+                  />
+                  <span style={{ fontSize: 10, color: "var(--muted)" }}>
+                    {days[i]}
+                  </span>
                 </div>
               );
             })}
           </div>
         </div>
-        <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ fontSize: 48, fontWeight: 700, color: "#6366f1", fontFamily: "'DM Mono', monospace" }}>{stats.totalMessages.toLocaleString()}</div>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>Mensajes totales procesados</div>
-          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>desde el inicio de la plataforma</div>
+        <div
+          style={{
+            background: "var(--card)",
+            border: "1px solid var(--border)",
+            borderRadius: 16,
+            padding: 24,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: 48,
+              fontWeight: 700,
+              color: "#6366f1",
+              fontFamily: "'DM Mono', monospace",
+            }}
+          >
+            {stats.totalMessages.toLocaleString()}
+          </div>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
+            Mensajes totales procesados
+          </div>
+          <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2 }}>
+            desde el inicio de la plataforma
+          </div>
         </div>
       </div>
     </div>
@@ -372,11 +702,27 @@ const Overview: FC = () => {
 const ClientsTable: FC = () => {
   const [page, setPage] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const { data: clients, totalPages, totalElements, loading, error, createClient, updateClient, deleteClient } = useClients(page, refreshSignal);
+  const {
+    data: clients,
+    totalPages,
+    totalElements,
+    loading,
+    error,
+    createClient,
+    updateClient,
+    deleteClient,
+  } = useClients(page, refreshSignal);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<ClientFormData>({ name: "", slug: "", sector: "educacion", plan: "starter" });
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [form, setForm] = useState<ClientFormData>({
+    name: "",
+    slug: "",
+    sector: "educacion",
+    plan: "starter",
+  });
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "success" | "error"
+  >("idle");
   const [errorMsg, setErrorMsg] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -394,7 +740,12 @@ const ClientsTable: FC = () => {
 
   const openEdit = (entry: ClientOrg) => {
     setEditingId(entry.id);
-    setForm({ name: entry.name, slug: entry.slug, sector: entry.sector, plan: entry.subscription?.plan ?? "starter" });
+    setForm({
+      name: entry.name,
+      slug: entry.slug,
+      sector: entry.sector,
+      plan: entry.subscription?.plan ?? "starter",
+    });
     setShowForm(true);
     setStatus("idle");
     setErrorMsg("");
@@ -406,7 +757,10 @@ const ClientsTable: FC = () => {
     if (name === "name" && !editingId) {
       setForm((prev) => ({
         ...prev,
-        slug: value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""),
+        slug: value
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^a-z0-9-]/g, ""),
       }));
     }
   };
@@ -431,7 +785,9 @@ const ClientsTable: FC = () => {
       handleRefresh();
       setTimeout(() => setStatus("idle"), 2000);
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : "Error al guardar cliente.");
+      setErrorMsg(
+        err instanceof Error ? err.message : "Error al guardar cliente.",
+      );
       setStatus("error");
     }
   };
@@ -463,74 +819,280 @@ const ClientsTable: FC = () => {
     setTimeout(() => setCopiedSlug(null), 2000);
   };
 
-  const filtered = clients.filter((c) =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.slug.toLowerCase().includes(search.toLowerCase())
+  // 🔥 NUEVO: Función para Suplantar a una organización
+  const handleImpersonate = async (orgId: string) => {
+    try {
+      const res = await api<{ token: string }>(
+        `/super/organizations/${orgId}/impersonate`,
+        {
+          method: "POST",
+        },
+      );
+      // Guarda el token generado como token de admin normal
+      localStorage.setItem("yoko_token", res.token);
+      // Abre el dashboard normal en una pestaña nueva
+      window.open("/", "_blank");
+    } catch (err) {
+      alert(
+        "Error al intentar suplantar a la organización. Verifica los permisos.",
+      );
+    }
+  };
+
+  const filtered = clients.filter(
+    (c) =>
+      c.name.toLowerCase().includes(search.toLowerCase()) ||
+      c.slug.toLowerCase().includes(search.toLowerCase()),
   );
 
-  const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: 13, color: "var(--text)", borderBottom: "1px solid var(--border)", verticalAlign: "middle" };
-  const thStyle: CSSProperties = { padding: "10px 14px", fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" as const, letterSpacing: "0.06em", textAlign: "left" as const, borderBottom: "1px solid var(--border)", background: "var(--bg)" };
-  const inp: CSSProperties = { width: "100%", padding: "10px 14px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 13, boxSizing: "border-box", outline: "none", marginBottom: 12 };
-  const selectStyle: CSSProperties = { ...inp, appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" };
-  const lbl: CSSProperties = { fontSize: 11, fontWeight: 600, color: "var(--muted)", display: "block", marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.06em" };
+  const tdStyle: CSSProperties = {
+    padding: "12px 14px",
+    fontSize: 13,
+    color: "var(--text)",
+    borderBottom: "1px solid var(--border)",
+    verticalAlign: "middle",
+  };
+  const thStyle: CSSProperties = {
+    padding: "10px 14px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    textAlign: "left",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg)",
+  };
+  const inp: CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg)",
+    color: "var(--text)",
+    fontSize: 13,
+    boxSizing: "border-box",
+    outline: "none",
+    marginBottom: 12,
+  };
+  const selectStyle: CSSProperties = {
+    ...inp,
+    appearance: "none",
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "right 12px center",
+  };
+  const lbl: CSSProperties = {
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    display: "block",
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Form modal */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}>
-          <div style={{ width: 440, background: "var(--card)", border: "1px solid var(--border)", borderRadius: 20, padding: "32px 28px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text)" }}>{editingId ? "Editar Cliente" : "Nuevo Cliente"}</h3>
-              <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: 4 }}>
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 100,
+          }}
+        >
+          <div
+            style={{
+              width: 440,
+              background: "var(--card)",
+              border: "1px solid var(--border)",
+              borderRadius: 20,
+              padding: "32px 28px",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 24,
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: "var(--text)",
+                }}
+              >
+                {editingId ? "Editar Organización" : "Nueva Organización"}
+              </h3>
+              <button
+                onClick={() => setShowForm(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--muted)",
+                  padding: 4,
+                }}
+              >
                 <Icon d={Icons.x} size={18} />
               </button>
             </div>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column" }}>
-              <label style={lbl}>Nombre <span style={{ color: "var(--danger)" }}>*</span></label>
-              <input name="name" value={form.name} onChange={handleNameChange} placeholder="Ej: Rumba App" disabled={status === "loading"} style={inp} />
+            <form
+              onSubmit={handleSubmit}
+              style={{ display: "flex", flexDirection: "column" }}
+            >
+              <label style={lbl}>
+                Nombre <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input
+                name="name"
+                value={form.name}
+                onChange={handleNameChange}
+                placeholder="Ej: Inversiones MR"
+                disabled={status === "loading"}
+                style={inp}
+              />
 
-              <label style={lbl}>Slug <span style={{ color: "var(--danger)" }}>*</span></label>
-              <input name="slug" value={form.slug} onChange={handleNameChange} placeholder="rumba-app" disabled={status === "loading"} style={{ ...inp, fontFamily: "'DM Mono', monospace", backgroundColor: "var(--bg)" }} />
+              <label style={lbl}>
+                Slug <span style={{ color: "var(--danger)" }}>*</span>
+              </label>
+              <input
+                name="slug"
+                value={form.slug}
+                onChange={handleNameChange}
+                placeholder="inversiones-mr"
+                disabled={status === "loading"}
+                style={{ ...inp, fontFamily: "'DM Mono', monospace" }}
+              />
               {form.slug && (
-                <div style={{ fontSize: 11, color: "var(--muted)", marginTop: -8, marginBottom: 12, fontFamily: "'DM Mono', monospace" }}>
-                  URL: <span style={{ color: "var(--accent)" }}>{window.location.origin}/{form.slug}</span>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    marginTop: -8,
+                    marginBottom: 12,
+                    fontFamily: "'DM Mono', monospace",
+                  }}
+                >
+                  URL:{" "}
+                  <span style={{ color: "var(--accent)" }}>
+                    {window.location.origin}/{form.slug}
+                  </span>
                 </div>
               )}
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 12,
+                }}
+              >
                 <div>
                   <label style={lbl}>Sector</label>
-                  <select name="sector" value={form.sector} onChange={(e) => setForm((p) => ({ ...p, sector: e.target.value as SectorType }))} disabled={status === "loading"} style={{ ...selectStyle, marginBottom: 12 }}>
+                  <select
+                    name="sector"
+                    value={form.sector}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        sector: e.target.value as SectorType,
+                      }))
+                    }
+                    disabled={status === "loading"}
+                    style={{ ...selectStyle, marginBottom: 12 }}
+                  >
                     {(Object.keys(SECTOR_LABEL) as SectorType[]).map((t) => (
-                      <option key={t} value={t}>{SECTOR_LABEL[t]}</option>
+                      <option key={t} value={t}>
+                        {SECTOR_LABEL[t]}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
                   <label style={lbl}>Plan</label>
-                  <select name="plan" value={form.plan} onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value as SubPlan }))} disabled={status === "loading"} style={{ ...selectStyle, marginBottom: 12 }}>
+                  <select
+                    name="plan"
+                    value={form.plan}
+                    onChange={(e) =>
+                      setForm((p) => ({
+                        ...p,
+                        plan: e.target.value as SubPlan,
+                      }))
+                    }
+                    disabled={status === "loading"}
+                    style={{ ...selectStyle, marginBottom: 12 }}
+                  >
                     {(Object.keys(PLAN_LABEL) as SubPlan[]).map((t) => (
-                      <option key={t} value={t}>{PLAN_LABEL[t]}</option>
+                      <option key={t} value={t}>
+                        {PLAN_LABEL[t]}
+                      </option>
                     ))}
                   </select>
                 </div>
               </div>
 
               {status === "error" && (
-                <div style={{ padding: "10px 14px", borderRadius: 10, background: "var(--danger)12", border: "1px solid var(--danger)30", color: "var(--danger)", fontSize: 13, marginBottom: 14 }}>
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "var(--danger)12",
+                    border: "1px solid var(--danger)30",
+                    color: "var(--danger)",
+                    fontSize: 13,
+                    marginBottom: 14,
+                  }}
+                >
                   {errorMsg}
                 </div>
               )}
               {status === "success" && (
-                <div style={{ padding: "10px 14px", borderRadius: 10, background: "#22c55e14", border: "1px solid #22c55e30", color: "#22c55e", fontSize: 13, marginBottom: 14 }}>
-                  Cliente guardado exitosamente.
+                <div
+                  style={{
+                    padding: "10px 14px",
+                    borderRadius: 10,
+                    background: "#22c55e14",
+                    border: "1px solid #22c55e30",
+                    color: "#22c55e",
+                    fontSize: 13,
+                    marginBottom: 14,
+                  }}
+                >
+                  Organización guardada exitosamente.
                 </div>
               )}
 
-              <button type="submit" disabled={status === "loading"}
-                style={{ padding: "11px", borderRadius: 10, border: "none", background: status === "loading" ? "var(--border)" : "var(--accent)", color: status === "loading" ? "var(--muted)" : "#fff", fontSize: 14, fontWeight: 600, cursor: status === "loading" ? "not-allowed" : "pointer" }}>
-                {status === "loading" ? "Guardando…" : editingId ? "Actualizar" : "Crear Cliente"}
+              <button
+                type="submit"
+                disabled={status === "loading"}
+                style={{
+                  padding: "11px",
+                  borderRadius: 10,
+                  border: "none",
+                  background:
+                    status === "loading" ? "var(--border)" : "var(--accent)",
+                  color: status === "loading" ? "var(--muted)" : "#fff",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: status === "loading" ? "not-allowed" : "pointer",
+                }}
+              >
+                {status === "loading"
+                  ? "Guardando…"
+                  : editingId
+                    ? "Actualizar"
+                    : "Crear Organización"}
               </button>
             </form>
           </div>
@@ -538,35 +1100,115 @@ const ClientsTable: FC = () => {
       )}
 
       {/* Main card */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
-        <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "18px 20px",
+            borderBottom: "1px solid var(--border)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent)18", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)" }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "var(--accent)18",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "var(--accent)",
+              }}
+            >
               <Icon d={Icons.link} size={15} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Clientes</div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
-                {loading ? "Cargando…" : `${totalElements.toLocaleString()} cliente${totalElements !== 1 ? "s" : ""} en la plataforma`}
+              <div
+                style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
+              >
+                Organizaciones
+              </div>
+              <div
+                style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}
+              >
+                {loading
+                  ? "Cargando…"
+                  : `${totalElements.toLocaleString()} registradas`}
               </div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--muted)" }}>
+              <span
+                style={{
+                  position: "absolute",
+                  left: 10,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  color: "var(--muted)",
+                }}
+              >
                 <Icon d={Icons.sessions} size={14} />
               </span>
-              <input value={search} onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)} placeholder="Buscar..."
-                style={{ padding: "8px 12px 8px 32px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 13, outline: "none", width: 200 }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar..."
+                style={{
+                  padding: "8px 12px 8px 32px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "var(--bg)",
+                  color: "var(--text)",
+                  fontSize: 13,
+                  outline: "none",
+                  width: 200,
+                }}
+              />
             </div>
-            <button onClick={openCreate} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 10, border: "none", background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-              <Icon d={Icons.plus} size={14} /> Nuevo
+            <button
+              onClick={openCreate}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "8px 16px",
+                borderRadius: 10,
+                border: "none",
+                background: "var(--accent)",
+                color: "#fff",
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: "pointer",
+              }}
+            >
+              <Icon d={Icons.plus} size={14} /> Nueva
             </button>
           </div>
         </div>
 
         {error && (
-          <div style={{ margin: "16px 20px", padding: "10px 14px", borderRadius: 10, background: "var(--danger)12", border: "1px solid var(--danger)30", color: "var(--danger)", fontSize: 13 }}>
+          <div
+            style={{
+              margin: "16px 20px",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "var(--danger)12",
+              border: "1px solid var(--danger)30",
+              color: "var(--danger)",
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
@@ -575,103 +1217,257 @@ const ClientsTable: FC = () => {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={thStyle}>Cliente</th>
+                <th style={thStyle}>Organización</th>
                 <th style={thStyle}>Slug</th>
                 <th style={thStyle}>Sector</th>
                 <th style={thStyle}>Usuarios</th>
                 <th style={thStyle}>Docs</th>
                 <th style={thStyle}>Plan</th>
-                <th style={thStyle}>Suscripción</th>
                 <th style={thStyle}>Estado</th>
-                <th style={{ ...thStyle, textAlign: "right" as const }}>Acciones</th>
+                <th style={{ ...thStyle, textAlign: "right" as const }}>
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {[40, 25, 20, 10, 10, 15, 15, 10, 25].map((w, j) => (
-                      <td key={j} style={{ ...tdStyle }}>
-                        <div style={{ height: 12, borderRadius: 4, background: "var(--border)", width: `${w}%`, animation: "pulse 1.5s infinite" }} />
+                    {[40, 25, 20, 10, 10, 15, 10, 30].map((w, j) => (
+                      <td key={j} style={tdStyle}>
+                        <div
+                          style={{
+                            height: 12,
+                            borderRadius: 4,
+                            background: "var(--border)",
+                            width: `${w}%`,
+                            animation: "pulse 1.5s infinite",
+                          }}
+                        />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ padding: "48px 24px", textAlign: "center" }}>
+                  <td
+                    colSpan={8}
+                    style={{ padding: "48px 24px", textAlign: "center" }}
+                  >
                     <div style={{ color: "var(--muted)", fontSize: 13 }}>
                       <Icon d={Icons.link} size={32} />
-                      <div style={{ marginTop: 12, fontWeight: 500 }}>No hay clientes registrados</div>
-                      <div style={{ marginTop: 4, fontSize: 12 }}>Crea tu primer cliente para comenzar.</div>
+                      <div style={{ marginTop: 12, fontWeight: 500 }}>
+                        No hay organizaciones registradas
+                      </div>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filtered.map((c) => (
-                  <tr key={c.id} style={{ transition: "background 0.1s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  <tr
+                    key={c.id}
+                    style={{ transition: "background 0.1s" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
                   >
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{c.name}</td>
-                    <td style={{ ...tdStyle, fontFamily: "'DM Mono', monospace", fontSize: 12 }}>
+                    <td
+                      style={{
+                        ...tdStyle,
+                        fontFamily: "'DM Mono', monospace",
+                        fontSize: 12,
+                      }}
+                    >
                       <span style={{ color: "var(--accent)" }}>/{c.slug}</span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: `${SECTOR_COLOR[c.sector]}18`, color: SECTOR_COLOR[c.sector], fontWeight: 600 }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          background: `${SECTOR_COLOR[c.sector]}18`,
+                          color: SECTOR_COLOR[c.sector],
+                          fontWeight: 600,
+                        }}
+                      >
                         {SECTOR_LABEL[c.sector]}
                       </span>
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}>{c.userCount}</td>
-                    <td style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}>{c.docCount}</td>
+                    <td
+                      style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {c.userCount}
+                    </td>
+                    <td
+                      style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {c.docCount}
+                    </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`, color: PLAN_COLOR[c.subscription?.plan ?? "free"], fontWeight: 600 }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`,
+                          color: PLAN_COLOR[c.subscription?.plan ?? "free"],
+                          fontWeight: 600,
+                        }}
+                      >
                         {PLAN_LABEL[c.subscription?.plan ?? "free"]}
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: `${STATUS_COLOR[c.subscription?.status ?? "active"]}18`, color: STATUS_COLOR[c.subscription?.status ?? "active"], fontWeight: 600 }}>
-                        {STATUS_LABEL[c.subscription?.status ?? "active"]}
-                      </span>
-                      {c.subscription?.expiresAt && (
-                        <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2, fontFamily: "'DM Mono', monospace" }}>
-                          {c.subscription.expiresAt}
-                        </div>
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: c.active ? "#22c55e20" : "#94a3b820", color: c.active ? "#22c55e" : "#94a3b8" }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          background: c.active ? "#22c55e20" : "#94a3b820",
+                          color: c.active ? "#22c55e" : "#94a3b8",
+                        }}
+                      >
                         {c.active ? "activo" : "inactivo"}
                       </span>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "right" as const }}>
-                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-                        <button onClick={() => copyUrl(c.slug)} title="Copiar URL"
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center" }}>
-                          <Icon d={copiedSlug === c.slug ? Icons.check : Icons.copy} size={13} />
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 4,
+                          justifyContent: "flex-end",
+                        }}
+                      >
+                        <button
+                          onClick={() => handleImpersonate(c.id)}
+                          title="Suplantar"
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--accent)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Icon d={Icons.impersonate} size={13} />
                         </button>
-                        <button onClick={() => openEdit(c)} title="Editar"
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center" }}>
+                        <button
+                          onClick={() => copyUrl(c.slug)}
+                          title="Copiar URL"
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
+                          <Icon
+                            d={copiedSlug === c.slug ? Icons.check : Icons.copy}
+                            size={13}
+                          />
+                        </button>
+                        <button
+                          onClick={() => openEdit(c)}
+                          title="Editar"
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--muted)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
                           <Icon d={Icons.edit} size={13} />
                         </button>
-                        <button onClick={() => handleToggleActive(c)} title={c.active ? "Desactivar" : "Activar"}
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: c.active ? "#22c55e" : "#f59e0b", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center" }}>
+                        <button
+                          onClick={() => handleToggleActive(c)}
+                          title={c.active ? "Desactivar" : "Activar"}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: "transparent",
+                            color: c.active ? "#22c55e" : "#f59e0b",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                        >
                           <Icon d={Icons.check} size={13} />
                         </button>
                         {confirmDelete === c.id ? (
-                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                            <button onClick={() => handleDelete(c.id)} title="Confirmar"
-                              style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "var(--danger)", color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 600 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 4,
+                              alignItems: "center",
+                            }}
+                          >
+                            <button
+                              onClick={() => handleDelete(c.id)}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: "var(--danger)",
+                                color: "#fff",
+                                cursor: "pointer",
+                                fontSize: 11,
+                                fontWeight: 600,
+                              }}
+                            >
                               Sí
                             </button>
-                            <button onClick={() => setConfirmDelete(null)} title="Cancelar"
-                              style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "var(--border)", color: "var(--text)", cursor: "pointer", fontSize: 11 }}>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              style={{
+                                padding: "4px 8px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: "var(--border)",
+                                color: "var(--text)",
+                                cursor: "pointer",
+                                fontSize: 11,
+                              }}
+                            >
                               No
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => setConfirmDelete(c.id)} title="Eliminar"
-                            style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--danger)", cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center" }}>
+                          <button
+                            onClick={() => setConfirmDelete(c.id)}
+                            title="Eliminar"
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "transparent",
+                              color: "var(--danger)",
+                              cursor: "pointer",
+                              fontSize: 12,
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                          >
                             <Icon d={Icons.trash} size={13} />
                           </button>
                         )}
@@ -685,17 +1481,60 @@ const ClientsTable: FC = () => {
         </div>
 
         {totalPages > 1 && (
-          <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              padding: "14px 20px",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Página <strong style={{ color: "var(--text)" }}>{page + 1}</strong> de <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
+              Página{" "}
+              <strong style={{ color: "var(--text)" }}>{page + 1}</strong> de{" "}
+              <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
             </span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0 || loading}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: page === 0 ? "var(--muted)" : "var(--text)", fontSize: 12, fontWeight: 500, cursor: page === 0 ? "not-allowed" : "pointer", opacity: page === 0 ? 0.45 : 1 }}>
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: page === 0 ? "var(--muted)" : "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: page === 0 ? "not-allowed" : "pointer",
+                  opacity: page === 0 ? 0.45 : 1,
+                }}
+              >
                 <Icon d={Icons.chevLeft} size={13} /> Anterior
               </button>
-              <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1 || loading}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: page >= totalPages - 1 ? "var(--muted)" : "var(--text)", fontSize: 12, fontWeight: 500, cursor: page >= totalPages - 1 ? "not-allowed" : "pointer", opacity: page >= totalPages - 1 ? 0.45 : 1 }}>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1 || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color:
+                    page >= totalPages - 1 ? "var(--muted)" : "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: page >= totalPages - 1 ? "not-allowed" : "pointer",
+                  opacity: page >= totalPages - 1 ? 0.45 : 1,
+                }}
+              >
                 Siguiente <Icon d={Icons.chevRight} size={13} />
               </button>
             </div>
@@ -710,7 +1549,13 @@ const ClientsTable: FC = () => {
 const SubscriptionsView: FC = () => {
   const [page, setPage] = useState(0);
   const [refreshSignal, setRefreshSignal] = useState(0);
-  const { data: clients, totalPages, totalElements, loading, error, updateClient } = useClients(page, refreshSignal);
+  const {
+    data: clients,
+    totalPages,
+    totalElements,
+    loading,
+    error,
+  } = useClients(page, refreshSignal);
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<SubPlan>("starter");
 
@@ -718,7 +1563,11 @@ const SubscriptionsView: FC = () => {
 
   const changePlan = async (id: string, plan: SubPlan) => {
     try {
-      await updateClient(id, { plan });
+      // Usando el endpoint específico para ChangePlanRequest
+      await api(`/super/organizations/${id}/plan`, {
+        method: "PUT",
+        body: JSON.stringify({ plan }),
+      });
       setEditingPlanId(null);
       handleRefresh();
     } catch {
@@ -726,43 +1575,140 @@ const SubscriptionsView: FC = () => {
     }
   };
 
-  const tdStyle: CSSProperties = { padding: "12px 14px", fontSize: 13, color: "var(--text)", borderBottom: "1px solid var(--border)" };
-  const thStyle: CSSProperties = { padding: "10px 14px", fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase" as const, letterSpacing: "0.06em", textAlign: "left" as const, borderBottom: "1px solid var(--border)", background: "var(--bg)" };
+  const tdStyle: CSSProperties = {
+    padding: "12px 14px",
+    fontSize: 13,
+    color: "var(--text)",
+    borderBottom: "1px solid var(--border)",
+  };
+  const thStyle: CSSProperties = {
+    padding: "10px 14px",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--muted)",
+    textTransform: "uppercase",
+    letterSpacing: "0.06em",
+    textAlign: "left",
+    borderBottom: "1px solid var(--border)",
+    background: "var(--bg)",
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
       {/* Plan cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4, 1fr)",
+          gap: 16,
+        }}
+      >
         {(["free", "starter", "pro", "enterprise"] as SubPlan[]).map((plan) => {
-          const count = clients.filter((c) => c.subscription?.plan === plan).length;
+          const count = clients.filter(
+            (c) => c.subscription?.plan === plan,
+          ).length;
           return (
-            <div key={plan} style={{ background: "var(--card)", border: `2px solid ${PLAN_COLOR[plan]}30`, borderRadius: 16, padding: 20, textAlign: "center" }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: PLAN_COLOR[plan], textTransform: "uppercase", letterSpacing: "0.06em" }}>{PLAN_LABEL[plan]}</div>
-              <div style={{ fontSize: 28, fontWeight: 700, color: "var(--text)", fontFamily: "'DM Mono', monospace", marginTop: 8 }}>{count}</div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}>clientes</div>
+            <div
+              key={plan}
+              style={{
+                background: "var(--card)",
+                border: `2px solid ${PLAN_COLOR[plan]}30`,
+                borderRadius: 16,
+                padding: 20,
+                textAlign: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: PLAN_COLOR[plan],
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                {PLAN_LABEL[plan]}
+              </div>
+              <div
+                style={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  color: "var(--text)",
+                  fontFamily: "'DM Mono', monospace",
+                  marginTop: 8,
+                }}
+              >
+                {count}
+              </div>
+              <div
+                style={{ fontSize: 12, color: "var(--muted)", marginTop: 2 }}
+              >
+                clientes
+              </div>
             </div>
           );
         })}
       </div>
 
       {/* Table */}
-      <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 16, overflow: "hidden" }}>
-        <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "18px 20px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 8, background: "#f59e0b18", display: "flex", alignItems: "center", justifyContent: "center", color: "#f59e0b" }}>
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                background: "#f59e0b18",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#f59e0b",
+              }}
+            >
               <Icon d={Icons.creditCard} size={15} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>Gestión de Suscripciones</div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}>
-                {loading ? "Cargando…" : `${totalElements.toLocaleString()} suscripciones en la plataforma`}
+              <div
+                style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}
+              >
+                Gestión de Suscripciones
+              </div>
+              <div
+                style={{ fontSize: 11, color: "var(--muted)", marginTop: 1 }}
+              >
+                {loading
+                  ? "Cargando…"
+                  : `${totalElements.toLocaleString()} suscripciones en la plataforma`}
               </div>
             </div>
           </div>
         </div>
 
         {error && (
-          <div style={{ margin: "16px 20px", padding: "10px 14px", borderRadius: 10, background: "var(--danger)12", border: "1px solid var(--danger)30", color: "var(--danger)", fontSize: 13 }}>
+          <div
+            style={{
+              margin: "16px 20px",
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "var(--danger)12",
+              border: "1px solid var(--danger)30",
+              color: "var(--danger)",
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
@@ -771,71 +1717,169 @@ const SubscriptionsView: FC = () => {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
-                <th style={thStyle}>Cliente</th>
+                <th style={thStyle}>Organización</th>
                 <th style={thStyle}>Plan actual</th>
                 <th style={thStyle}>Estado</th>
-                <th style={thStyle}>Vence</th>
                 <th style={thStyle}>Docs</th>
-                <th style={{ ...thStyle, textAlign: "right" as const }}>Acciones</th>
+                <th style={{ ...thStyle, textAlign: "right" as const }}>
+                  Acciones
+                </th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
-                    {[40, 20, 15, 20, 10, 25].map((w, j) => (
-                      <td key={j} style={{ ...tdStyle }}>
-                        <div style={{ height: 12, borderRadius: 4, background: "var(--border)", width: `${w}%`, animation: "pulse 1.5s infinite" }} />
+                    {[40, 20, 15, 10, 25].map((w, j) => (
+                      <td key={j} style={tdStyle}>
+                        <div
+                          style={{
+                            height: 12,
+                            borderRadius: 4,
+                            background: "var(--border)",
+                            width: `${w}%`,
+                            animation: "pulse 1.5s infinite",
+                          }}
+                        />
                       </td>
                     ))}
                   </tr>
                 ))
               ) : clients.length === 0 ? (
                 <tr>
-                  <td colSpan={6} style={{ padding: "48px 24px", textAlign: "center" }}>
-                    <div style={{ color: "var(--muted)", fontSize: 13 }}>No hay suscripciones para mostrar.</div>
+                  <td
+                    colSpan={5}
+                    style={{ padding: "48px 24px", textAlign: "center" }}
+                  >
+                    <div style={{ color: "var(--muted)", fontSize: 13 }}>
+                      No hay suscripciones para mostrar.
+                    </div>
                   </td>
                 </tr>
               ) : (
                 clients.map((c) => (
-                  <tr key={c.id} style={{ transition: "background 0.1s" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  <tr
+                    key={c.id}
+                    style={{ transition: "background 0.1s" }}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.background = "var(--bg)")
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.background = "transparent")
+                    }
                   >
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{c.name}</td>
                     <td style={tdStyle}>
                       {editingPlanId === c.id ? (
-                        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                          <select value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value as SubPlan)}
-                            style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg)", color: "var(--text)", fontSize: 12 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: 4,
+                            alignItems: "center",
+                          }}
+                        >
+                          <select
+                            value={selectedPlan}
+                            onChange={(e) =>
+                              setSelectedPlan(e.target.value as SubPlan)
+                            }
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "1px solid var(--border)",
+                              background: "var(--bg)",
+                              color: "var(--text)",
+                              fontSize: 12,
+                            }}
+                          >
                             {(Object.keys(PLAN_LABEL) as SubPlan[]).map((p) => (
-                              <option key={p} value={p}>{PLAN_LABEL[p]}</option>
+                              <option key={p} value={p}>
+                                {PLAN_LABEL[p]}
+                              </option>
                             ))}
                           </select>
-                          <button onClick={() => changePlan(c.id, selectedPlan)} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "var(--accent)", color: "#fff", fontSize: 11, cursor: "pointer" }}>OK</button>
-                          <button onClick={() => setEditingPlanId(null)} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--muted)", fontSize: 11, cursor: "pointer" }}>
+                          <button
+                            onClick={() => changePlan(c.id, selectedPlan)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "var(--accent)",
+                              color: "#fff",
+                              fontSize: 11,
+                              cursor: "pointer",
+                            }}
+                          >
+                            OK
+                          </button>
+                          <button
+                            onClick={() => setEditingPlanId(null)}
+                            style={{
+                              padding: "4px 8px",
+                              borderRadius: 6,
+                              border: "none",
+                              background: "transparent",
+                              color: "var(--muted)",
+                              fontSize: 11,
+                              cursor: "pointer",
+                            }}
+                          >
                             <Icon d={Icons.x} size={12} />
                           </button>
                         </div>
                       ) : (
-                        <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`, color: PLAN_COLOR[c.subscription?.plan ?? "free"], fontWeight: 600 }}>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            padding: "3px 9px",
+                            borderRadius: 20,
+                            background: `${PLAN_COLOR[c.subscription?.plan ?? "free"]}18`,
+                            color: PLAN_COLOR[c.subscription?.plan ?? "free"],
+                            fontWeight: 600,
+                          }}
+                        >
                           {PLAN_LABEL[c.subscription?.plan ?? "free"]}
                         </span>
                       )}
                     </td>
                     <td style={tdStyle}>
-                      <span style={{ fontSize: 11, padding: "3px 9px", borderRadius: 20, background: `${STATUS_COLOR[c.subscription?.status ?? "active"]}18`, color: STATUS_COLOR[c.subscription?.status ?? "active"], fontWeight: 600 }}>
+                      <span
+                        style={{
+                          fontSize: 11,
+                          padding: "3px 9px",
+                          borderRadius: 20,
+                          background: `${STATUS_COLOR[c.subscription?.status ?? "active"]}18`,
+                          color:
+                            STATUS_COLOR[c.subscription?.status ?? "active"],
+                          fontWeight: 600,
+                        }}
+                      >
                         {STATUS_LABEL[c.subscription?.status ?? "active"]}
                       </span>
                     </td>
-                    <td style={{ ...tdStyle, color: "var(--muted)", fontSize: 12, fontFamily: "'DM Mono', monospace" }}>
-                      {c.subscription?.expiresAt ?? "—"}
+                    <td
+                      style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {c.docCount}
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: "'DM Mono', monospace" }}>{c.docCount}</td>
                     <td style={{ ...tdStyle, textAlign: "right" as const }}>
                       {editingPlanId !== c.id && (
-                        <button onClick={() => { setEditingPlanId(c.id); setSelectedPlan(c.subscription?.plan ?? "starter"); }}
-                          style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "transparent", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 500 }}>
+                        <button
+                          onClick={() => {
+                            setEditingPlanId(c.id);
+                            setSelectedPlan(c.subscription?.plan ?? "starter");
+                          }}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 6,
+                            border: "none",
+                            background: "transparent",
+                            color: "var(--accent)",
+                            cursor: "pointer",
+                            fontSize: 12,
+                            fontWeight: 500,
+                          }}
+                        >
                           Cambiar plan
                         </button>
                       )}
@@ -848,17 +1892,60 @@ const SubscriptionsView: FC = () => {
         </div>
 
         {totalPages > 1 && (
-          <div style={{ padding: "14px 20px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              padding: "14px 20px",
+              borderTop: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <span style={{ fontSize: 12, color: "var(--muted)" }}>
-              Página <strong style={{ color: "var(--text)" }}>{page + 1}</strong> de <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
+              Página{" "}
+              <strong style={{ color: "var(--text)" }}>{page + 1}</strong> de{" "}
+              <strong style={{ color: "var(--text)" }}>{totalPages}</strong>
             </span>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0 || loading}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: page === 0 ? "var(--muted)" : "var(--text)", fontSize: 12, fontWeight: 500, cursor: page === 0 ? "not-allowed" : "pointer", opacity: page === 0 ? 0.45 : 1 }}>
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: page === 0 ? "var(--muted)" : "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: page === 0 ? "not-allowed" : "pointer",
+                  opacity: page === 0 ? 0.45 : 1,
+                }}
+              >
                 <Icon d={Icons.chevLeft} size={13} /> Anterior
               </button>
-              <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1 || loading}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: page >= totalPages - 1 ? "var(--muted)" : "var(--text)", fontSize: 12, fontWeight: 500, cursor: page >= totalPages - 1 ? "not-allowed" : "pointer", opacity: page >= totalPages - 1 ? 0.45 : 1 }}>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1 || loading}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  borderRadius: 8,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color:
+                    page >= totalPages - 1 ? "var(--muted)" : "var(--text)",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  cursor: page >= totalPages - 1 ? "not-allowed" : "pointer",
+                  opacity: page >= totalPages - 1 ? 0.45 : 1,
+                }}
+              >
                 Siguiente <Icon d={Icons.chevRight} size={13} />
               </button>
             </div>
@@ -870,10 +1957,16 @@ const SubscriptionsView: FC = () => {
 };
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
-interface TabDef { id: TabId; label: string; icon: string; }
+interface TabDef {
+  id: TabId;
+  label: string;
+  icon: string;
+}
 
 export default function SuperAdmin(): JSX.Element {
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem("yoko_superadmin_token"));
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem("yoko_superadmin_token"),
+  );
   const [tab, setTab] = useState<TabId>("overview");
   const [dark, setDark] = useState<boolean>(true);
 
@@ -883,11 +1976,11 @@ export default function SuperAdmin(): JSX.Element {
   };
 
   const theme: Record<string, string> = {
-    "--bg":     dark ? "#0f1117" : "#f8f9fa",
-    "--card":   dark ? "#161b27" : "#ffffff",
+    "--bg": dark ? "#0f1117" : "#f8f9fa",
+    "--card": dark ? "#161b27" : "#ffffff",
     "--border": dark ? "#1e2736" : "#e5e7eb",
-    "--text":   dark ? "#e8eaf0" : "#111827",
-    "--muted":  dark ? "#64748b" : "#9ca3af",
+    "--text": dark ? "#e8eaf0" : "#111827",
+    "--muted": dark ? "#64748b" : "#9ca3af",
     "--accent": "#6366f1",
     "--danger": "#ef4444",
   };
@@ -901,16 +1994,30 @@ export default function SuperAdmin(): JSX.Element {
     );
 
   const tabs: TabDef[] = [
-    { id: "overview", label: "Dashboard",  icon: Icons.sessions },
-    { id: "clients",    label: "Clientes",   icon: Icons.link },
-    { id: "subscriptions",     label: "Suscripciones", icon: Icons.creditCard },
+    { id: "overview", label: "Dashboard", icon: Icons.sessions },
+    { id: "clients", label: "Organizaciones", icon: Icons.link },
+    { id: "subscriptions", label: "Suscripciones", icon: Icons.creditCard },
   ];
 
-  const pageTitle:    Record<TabId, string> = { overview: "Dashboard general",  clients: "Clientes",    subscriptions: "Suscripciones" };
-  const pageSubtitle: Record<TabId, string> = { overview: "Estado general de la plataforma Yoko", clients: "Gestiona todas las organizaciones registradas", subscriptions: "Administra planes y suscripciones de tus clientes" };
+  const pageTitle: Record<TabId, string> = {
+    overview: "Dashboard global",
+    clients: "Organizaciones",
+    subscriptions: "Suscripciones",
+  };
+  const pageSubtitle: Record<TabId, string> = {
+    overview: "Estado general de la plataforma Yoko",
+    clients: "Gestiona todas las empresas registradas",
+    subscriptions: "Administra planes y límites de tus clientes",
+  };
 
   return (
-    <div style={{ ...(theme as CSSProperties), minHeight: "100vh", background: "var(--bg)" }}>
+    <div
+      style={{
+        ...(theme as CSSProperties),
+        minHeight: "100vh",
+        background: "var(--bg)",
+      }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap');
         *{font-family:'DM Sans',sans-serif;box-sizing:border-box;} body{margin:0;}
@@ -922,49 +2029,159 @@ export default function SuperAdmin(): JSX.Element {
       `}</style>
 
       {/* Sidebar */}
-      <div style={{ ...(theme as CSSProperties), position: "fixed", top: 0, left: 0, bottom: 0, width: 220, background: "var(--card)", borderRight: "1px solid var(--border)", display: "flex", flexDirection: "column", padding: "24px 0" }}>
-        <div style={{ padding: "0 20px 24px", borderBottom: "1px solid var(--border)" }}>
+      <div
+        style={{
+          ...(theme as CSSProperties),
+          position: "fixed",
+          top: 0,
+          left: 0,
+          bottom: 0,
+          width: 220,
+          background: "var(--card)",
+          borderRight: "1px solid var(--border)",
+          display: "flex",
+          flexDirection: "column",
+          padding: "24px 0",
+        }}
+      >
+        <div
+          style={{
+            padding: "0 20px 24px",
+            borderBottom: "1px solid var(--border)",
+          }}
+        >
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg, #6366f1, #8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff" }}>
+            <div
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 9,
+                background: "linear-gradient(135deg, #6366f1, #8b5cf6)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff",
+              }}
+            >
               <Icon d={Icons.bot} size={18} />
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>Yoko</div>
-              <div style={{ fontSize: 11, color: "var(--muted)" }}>Super Admin</div>
+              <div
+                style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}
+              >
+                Yoko
+              </div>
+              <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                Super Admin
+              </div>
             </div>
           </div>
         </div>
 
         <nav style={{ flex: 1, padding: "16px 12px" }}>
           {tabs.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "none", cursor: "pointer", background: tab === t.id ? "var(--accent)18" : "transparent", color: tab === t.id ? "var(--accent)" : "var(--muted)", fontSize: 14, fontWeight: tab === t.id ? 600 : 400, marginBottom: 4, textAlign: "left", transition: "all 0.15s" }}>
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "9px 12px",
+                borderRadius: 9,
+                border: "none",
+                cursor: "pointer",
+                background: tab === t.id ? "var(--accent)18" : "transparent",
+                color: tab === t.id ? "var(--accent)" : "var(--muted)",
+                fontSize: 14,
+                fontWeight: tab === t.id ? 600 : 400,
+                marginBottom: 4,
+                textAlign: "left",
+                transition: "all 0.15s",
+              }}
+            >
               <Icon d={t.icon} size={16} /> {t.label}
             </button>
           ))}
         </nav>
 
-        <div style={{ padding: "16px 12px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
-          <button onClick={() => setDark((d) => !d)}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: "var(--muted)", fontSize: 13, textAlign: "left" }}>
+        <div
+          style={{
+            padding: "16px 12px",
+            borderTop: "1px solid var(--border)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <button
+            onClick={() => setDark((d) => !d)}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "9px 12px",
+              borderRadius: 9,
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              color: "var(--muted)",
+              fontSize: 13,
+              textAlign: "left",
+            }}
+          >
             {dark ? "☀️" : "🌙"} {dark ? "Modo claro" : "Modo oscuro"}
           </button>
-          <button onClick={logout}
-            style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 9, border: "none", cursor: "pointer", background: "transparent", color: "#ef4444", fontSize: 13, textAlign: "left" }}>
+          <button
+            onClick={logout}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "9px 12px",
+              borderRadius: 9,
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              color: "#ef4444",
+              fontSize: 13,
+              textAlign: "left",
+            }}
+          >
             <Icon d={Icons.logout} size={14} /> Cerrar sesión
           </button>
         </div>
       </div>
 
       {/* Main content */}
-      <div style={{ ...(theme as CSSProperties), marginLeft: 220, padding: "32px" }}>
+      <div
+        style={{
+          ...(theme as CSSProperties),
+          marginLeft: 220,
+          padding: "32px",
+        }}
+      >
         <div style={{ marginBottom: 28 }}>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "var(--text)" }}>{pageTitle[tab]}</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 14, color: "var(--muted)" }}>{pageSubtitle[tab]}</p>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 22,
+              fontWeight: 700,
+              color: "var(--text)",
+            }}
+          >
+            {pageTitle[tab]}
+          </h1>
+          <p style={{ margin: "4px 0 0", fontSize: 14, color: "var(--muted)" }}>
+            {pageSubtitle[tab]}
+          </p>
         </div>
         {tab === "overview" && <Overview />}
-        {tab === "clients"    && <ClientsTable />}
-        {tab === "subscriptions"    && <SubscriptionsView />}
+        {tab === "clients" && <ClientsTable />}
+        {tab === "subscriptions" && <SubscriptionsView />}
       </div>
     </div>
   );

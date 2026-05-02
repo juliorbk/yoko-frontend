@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useRef, useCallback } from "react";
+﻿/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useEffect, useRef, useCallback, type JSX } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Send,
@@ -19,6 +19,42 @@ import {
 import api from "../api/axiosConfig";
 import { cn } from "../lib/utils";
 import type { Message, User, ChatSession } from "../types";
+
+// ─── Markdown Formatter ────────────────────────────────────────────────────────
+const formatMessage = (text: string): JSX.Element => {
+  const parts: JSX.Element[] = [];
+  const regex = /(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={lastIndex}>{text.slice(lastIndex, match.index)}</span>);
+    }
+    
+    const fullMatch = match[0];
+    let content = '';
+    
+    if (fullMatch.startsWith('***') && match[1]) {
+      content = match[1];
+      parts.push(<strong key={match.index}><em>{content}</em></strong>);
+    } else if (fullMatch.startsWith('**') && match[2]) {
+      content = match[2];
+      parts.push(<strong key={match.index}>{content}</strong>);
+    } else if (match[3]) {
+      content = match[3];
+      parts.push(<em key={match.index}>{content}</em>);
+    }
+    
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<span key={lastIndex}>{text.slice(lastIndex)}</span>);
+  }
+
+  return <span>{parts}</span>;
+};
 
 const Chat = () => {
   const [theme, setTheme] = useState("light");
@@ -548,7 +584,7 @@ const Chat = () => {
                         : "bg-primary text-slate-800 rounded-tl-none border border-slate-200",
                     )}
                   >
-                    {msg.content}
+                    {formatMessage(msg.content)}
                   </div>
                 </div>
               </div>

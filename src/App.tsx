@@ -10,6 +10,7 @@ import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
 import ProtectedRoute from "./components/ProtectedRoute";
 import RegisterOrganization from "./pages/RegisterOrganization";
+import SuperAdmin from "./pages/SuperAdmin";
 
 function App() {
   return (
@@ -28,6 +29,10 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/admin" element={<Admin />} />
         </Route>
+        <Route>
+          <Route path="/super" element={<SuperAdmin />} />
+        </Route>
+
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
