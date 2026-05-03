@@ -9,6 +9,34 @@ import {
   type JSX,
 } from "react";
 
+// ─── CSS ANIMATIONS FOR LOADING BAR ─────────────────────
+const loadingBarStyles = `
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes loadingBar {
+  0% { width: 20%; }
+  50% { width: 60%; }
+  100% { width: 20%; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+`;
+
+// Inject styles into document head
+if (typeof document !== "undefined") {
+  const styleId = "yoko-loading-animations";
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = loadingBarStyles;
+    document.head.appendChild(style);
+  }
+}
+
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
 const API_BASE = "http://localhost:8080/api";
 

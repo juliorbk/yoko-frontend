@@ -1676,17 +1676,20 @@ export default function SuperAdmin(): JSX.Element {
     { id: "overview", label: "Dashboard", icon: Icons.sessions },
     { id: "clients", label: "Organizaciones", icon: Icons.link },
     { id: "subscriptions", label: "Suscripciones", icon: Icons.creditCard },
+    { id: "persona", label: "AI Persona", icon: Icons.bot },
   ];
 
   const pageTitle: Record<TabId, string> = {
     overview: "Dashboard global",
     clients: "Organizaciones",
     subscriptions: "Suscripciones",
+    persona: "AI Persona",
   };
   const pageSubtitle: Record<TabId, string> = {
     overview: "Estado general de la plataforma Yoko",
     clients: "Gestiona todas las empresas registradas",
-    subscriptions: "Administra planes y límites de tus clientes",
+    subscriptions: "Administra planes y límites de sus clientes",
+    persona: "Configura el comportamiento de la IA por organización",
   };
 
   return (
@@ -1877,7 +1880,281 @@ export default function SuperAdmin(): JSX.Element {
           <ClientsTable onImpersonate={setImpersonationInfo} />
         )}
         {tab === "subscriptions" && <SubscriptionsView />}
+        {tab === "persona" && <PersonaEditor />}
       </div>
     </div>
   );
 }
+
+// ─── AI PERSONA EDITOR ─────────────────────────────────────
+// FIX: Added character limit to match backend validation (10,000 chars max)
+const MAX_PERSONA_CHARS = 10000;
+
+const PersonaEditor: FC = () => {
+  const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
+  const [organizations, setOrganizations] = useState<ClientOrg[]>([]);
+  const [persona, setPersona] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // FIX: Track character count for persona
+  const charCount = persona.length;
+  const isOverLimit = charCount > MAX_PERSONA_CHARS;
+
+  // Load organizations
+  useEffect(() => {
+    api<PageResponse<ClientOrg>>("/super/organizations?page=0&size=100")
+      .then((res) => {
+        const orgs = (res.content ?? []).map(mapBackendOrg);
+        setOrganizations(orgs);
+      })
+      .catch((err) => {
+        setErrorMsg(
+          err instanceof Error ? err.message : "Error cargando organizaciones",
+        );
+        setStatus("error");
+      });
+  }, []);
+
+  // Load persona when org selected
+  useEffect(() => {
+    if (!selectedOrg) {
+      setPersona("");
+      return;
+    }
+    setLoading(true);
+    api<any>(`/super/organizations/${selectedOrg}`)
+      .then((org) => {
+        setPersona(org.aiPersona || "");
+        setStatus("idle");
+      })
+      .catch((err) => {
+        setErrorMsg(
+          err instanceof Error ? err.message : "Error cargando persona",
+        );
+        setStatus("error");
+      })
+      .finally(() => setLoading(false));
+  }, [selectedOrg]);
+
+  const handleSave = async () => {
+    if (!selectedOrg) return;
+    setSaving(true);
+    setStatus("idle");
+    setErrorMsg("");
+    try {
+      await api(`/super/organizations/${selectedOrg}/persona`, {
+        method: "PATCH",
+        headers: { "Content-Type": "text/plain" },
+        body: persona,
+      });
+      setStatus("success");
+      setTimeout(() => setStatus("idle"), 2000);
+    } catch (err) {
+      setErrorMsg(
+        err instanceof Error ? err.message : "Error guardando persona",
+      );
+      setStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectStyle: CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "1px solid var(--border)",
+    background: "var(--bg)",
+    color: "var(--text)",
+    fontSize: 14,
+    outline: "none",
+    marginBottom: 16,
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <div
+        style={{
+          background: "var(--card)",
+          border: "1px solid var(--border)",
+          borderRadius: 16,
+          padding: 24,
+        }}
+      >
+        <h3
+          style={{
+            margin: "0 0 16px",
+            fontSize: 16,
+            fontWeight: 600,
+            color: "var(--text)",
+          }}
+        >
+          Editar AI Persona
+        </h3>
+        <p style={{ margin: "0 0 16px", fontSize: 13, color: "var(--muted)" }}>
+          La Persona define cómo responde Yoko para cada organización. Es el
+          contexto que recibe el LLM.
+        </p>
+
+        <label
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            color: "var(--muted)",
+            display: "block",
+            marginBottom: 5,
+            textTransform: "uppercase" as any,
+            letterSpacing: "0.06em",
+          }}
+        >
+          Seleccionar Organización
+        </label>
+        <select
+          value={selectedOrg || ""}
+          onChange={(e) => setSelectedOrg(e.target.value || null)}
+          style={selectStyle}
+        >
+          <option value="">-- Selecciona una organización --</option>
+          {organizations.map((org) => (
+            <option key={org.id} value={org.id}>
+              {org.name} (/{org.slug})
+            </option>
+          ))}
+        </select>
+
+        {loading && (
+          <div
+            style={{
+              color: "var(--muted)",
+              fontSize: 13,
+              textAlign: "center",
+              padding: 20,
+            }}
+          >
+            Cargando persona...
+          </div>
+        )}
+
+        {!loading && selectedOrg && (
+          <>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 5,
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: "var(--muted)",
+                  display: "block",
+                  textTransform: "uppercase" as any,
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Prompt de AI Persona
+              </span>
+              <span
+                style={{
+                  fontSize: 11,
+                  fontFamily: "'DM Mono', monospace",
+                  color: isOverLimit
+                    ? "var(--danger)"
+                    : charCount > MAX_PERSONA_CHARS * 0.9
+                      ? "#f59e0b"
+                      : "var(--muted)",
+                }}
+              >
+                {charCount.toLocaleString()} /{" "}
+                {MAX_PERSONA_CHARS.toLocaleString()} caracteres
+              </span>
+            </div>
+            <textarea
+              value={persona}
+              onChange={(e) => setPersona(e.target.value)}
+              placeholder={
+                'Eres el asistente virtual de [Organización]. Tu tono es formal y servicial...\nEjemplo:\n"Eres el recepcionista virtual del Hotel. Tu tono es amable y servicial..."'
+              }
+              maxLength={MAX_PERSONA_CHARS}
+              style={{
+                width: "100%",
+                minHeight: 200,
+                padding: 14,
+                borderRadius: 10,
+                border: `1px solid ${isOverLimit ? "var(--danger)" : "var(--border)"}`,
+                background: "var(--bg)",
+                color: "var(--text)",
+                fontSize: 14,
+                fontFamily: "'DM Mono', monospace",
+                outline: "none",
+                resize: "vertical" as any,
+                boxSizing: "border-box" as any,
+                marginBottom: 16,
+              }}
+            />
+
+            {status === "error" && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "var(--danger)12",
+                  border: "1px solid var(--danger)30",
+                  color: "var(--danger)",
+                  fontSize: 13,
+                  marginBottom: 14,
+                }}
+              >
+                {errorMsg}
+              </div>
+            )}
+
+            {status === "success" && (
+              <div
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  background: "#22c55e14",
+                  border: "1px solid #22c55e30",
+                  color: "#22c55e",
+                  fontSize: 13,
+                  marginBottom: 14,
+                }}
+              >
+                Persona guardada exitosamente.
+              </div>
+            )}
+
+            <button
+              onClick={handleSave}
+              disabled={saving || !persona.trim() || isOverLimit}
+              style={{
+                padding: "11px 24px",
+                borderRadius: 10,
+                border: "none",
+                background:
+                  saving || isOverLimit ? "var(--border)" : "var(--accent)",
+                color: saving || isOverLimit ? "var(--muted)" : "#fff",
+                fontSize: 14,
+                fontWeight: 600,
+                cursor: saving || isOverLimit ? "not-allowed" : "pointer",
+              }}
+            >
+              {saving
+                ? "Guardando..."
+                : isOverLimit
+                  ? `Límite alcanzado (${MAX_PERSONA_CHARS})`
+                  : "Guardar Persona"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
